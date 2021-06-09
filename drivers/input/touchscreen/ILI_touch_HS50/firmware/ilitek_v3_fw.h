@@ -45,7 +45,7 @@ static unsigned char CTPM_FW_CSOT[] = {
 #define LS_PANDA_INI_REQUEST_PATH		"mp_csot.ini"
 #define LS_PANDA_FW_REQUEST_PATH		"ILITEK_FW_CSOT"
 static unsigned char CTPM_FW_LS_PANDA[] = {
-	#include "ILI9882H_O3_LS_PANDA_6517_0x07_AP_0x01_MP_20200911.ili"
+	#include "ILI9882H_O3_LS_PANDA_6517_0x12_AP_0x02_MP_20201230.ili"
 };
 
 /*HS50 code for HS50-1707 by gaozhengwei at 2020/09/14 start*/
@@ -54,16 +54,35 @@ static unsigned char CTPM_FW_LS_PANDA[] = {
 #define LS_PANDA_LRPOL_INI_REQUEST_PATH		"mp_csot.ini"
 #define LS_PANDA_LRPOL_FW_REQUEST_PATH		"ILITEK_FW_CSOT"
 static unsigned char CTPM_FW_LS_PANDA_LRPOL[] = {
-	#include "ILI9882H_O3_LS_PANDA_LRPOL_6517_0x07_AP_0x01_MP_20200914.ili"
+	#include "ILI9882H_O3_LS_PANDA_6517_0x12_AP_0x02_MP_20201230.ili"
 };
 /*HS50 code for HS50-1707 by gaozhengwei at 2020/09/14 end*/
+/*HS50 code for SR-QL3095-01-743 by fengzhigang at 2020/09/27 start*/
+#define LS_PANDA_SWID22_INI_NAME_PATH		"/vendor/firmware/mp_ls_panda_swid22.ini"
+#define LS_PANDA_SWID22_FW_FILP_PATH		"/sdcard/ILITEK_FW_CSOT"
+#define LS_PANDA_SWID22_INI_REQUEST_PATH		"mp_csot.ini"
+#define LS_PANDA_SWID22_FW_REQUEST_PATH		"ILITEK_FW_CSOT"
+static unsigned char CTPM_FW_LS_PANDA_SWID22[] = {
+	#include "ILI9882H_O3_LS_PANDA_6517_0x12_AP_0x02_MP_20201230.ili"
+};
+/*HS50 code for SR-QL3095-01-743 by fengzhigang at 2020/09/27 end*/
+
+/*HS50 code for HS50-4157 by gaozhengwei at 2020/11/07 start*/
+#define LS_PANDA_SBLPOL_LJFPC_INI_NAME_PATH		"/vendor/firmware/mp_ls_panda_sblpol_ljfpc.ini"
+#define LS_PANDA_SBLPOL_LJFPC_FW_FILP_PATH		"/sdcard/ILITEK_FW_CSOT"
+#define LS_PANDA_SBLPOL_LJFPC_INI_REQUEST_PATH		"mp_csot.ini"
+#define LS_PANDA_SBLPOL_LJFPC_FW_REQUEST_PATH		"ILITEK_FW_CSOT"
+static unsigned char CTPM_FW_LS_PANDA_SBLPOL_LJFPC[] = {
+	#include "ILI9882N_O3_LS_12__PANDA_6517_0x02_AP_0x02_MP_20201230.ili"
+};
+/*HS50 code for HS50-4157 by gaozhengwei at 2020/11/07 end*/
 
 #define SKW_PANDA_INI_NAME_PATH		"/vendor/firmware/mp_skw_panda.ini"
 #define SKW_PANDA_FW_FILP_PATH		"/sdcard/ILITEK_FW_CSOT"
 #define SKW_PANDA_INI_REQUEST_PATH		"mp_csot.ini"
 #define SKW_PANDA_FW_REQUEST_PATH		"ILITEK_FW_CSOT"
 static unsigned char CTPM_FW_SKW_PANDA[] = {
-	#include "ILI9882H_O3_SKW_PANDA_6517_0x07_AP_0x02_MP_20200911.ili"
+	#include "ILI9882H_O3_SKW_PANDA_6517_0x0F_AP_0x02_MP_20201026.ili"
 };
 
 /*HS50 code for HS50-1707 by gaozhengwei at 2020/09/14 start*/
@@ -72,7 +91,7 @@ static unsigned char CTPM_FW_SKW_PANDA[] = {
 #define SKW_PANDA_LRPOL_INI_REQUEST_PATH		"mp_csot.ini"
 #define SKW_PANDA_LRPOL_FW_REQUEST_PATH		"ILITEK_FW_CSOT"
 static unsigned char CTPM_FW_SKW_PANDA_LRPOL[] = {
-	#include "ILI9882H_O3_SKW_PANDA_LRPOL_6517_0x07_AP_0x02_MP_20200911.ili"
+	#include "ILI9882H_O3_SKW_PANDA_6517_0x0F_AP_0x02_MP_20201026.ili"
 };
 /*HS50 code for HS50-1707 by gaozhengwei at 2020/09/14 end*/
 
@@ -89,7 +108,39 @@ static unsigned char CTPM_FW_LS_MDT[] = {
 #define TXD_INX_ILI9882N_INI_REQUEST_PATH		"mp_txd_inx_ili9882n.ini"
 #define TXD_INX_ILI9882N_FW_REQUEST_PATH		"ILITEK_FW"
 static unsigned char CTPM_FW_TXD_INX_ILI9882N[] = {
-	#include "ILI9882N_LongV_SEC_O3_HQ_TXD_INX_6517_AP_01_MP_01.ili"
+	#include "ILI9882H_O3_TXD_INX_6517_0x09_AP_0x82_MP_20201022.ili"
+};
+
+#define GX_BOE_EPD6301_INI_NAME_PATH		"/vendor/firmware/mp_gx_boe_epd6301.ini"
+#define GX_BOE_EPD6301_FW_FILP_PATH		"/sdcard/ILITEK_FW"
+#define GX_BOE_EPD6301_INI_REQUEST_PATH		"mp_gx_boe_epd6301.ini"
+#define GX_BOE_EPD6301_FW_REQUEST_PATH		"ILITEK_FW"
+static unsigned char CTPM_FW_GX_BOE_EPD6301[] = {
+	#include "9882FLH_V0x00.0x00_AP_0x04_MP_0x01_20201225.ili"
+};
+
+#define JDD_PANDA_ILI9882N_INI_NAME_PATH		"/vendor/firmware/mp_jdd_panda_ili9882n.ini"
+#define JDD_PANDA_ILI9882N_FW_FILP_PATH		"/sdcard/ILITEK_FW"
+#define JDD_PANDA_ILI9882N_INI_REQUEST_PATH		"mp_jdd_panda_ili9882n.ini"
+#define JDD_PANDA_ILI9882N_FW_REQUEST_PATH		"ILITEK_FW"
+static unsigned char CTPM_FW_JDD_PANDA_ILI9882N[] = {
+	#include "ILI9882H_O3_JDD_PANDA_6517_0x04_AP_0x01_MP_20210118.ili"
+};
+
+#define HLT_BOE_ILI7806S_INI_NAME_PATH		"/vendor/firmware/mp_hlt_boe_ili7806s.ini"
+#define HLT_BOE_ILI7806S_FW_FILP_PATH		"/sdcard/ILITEK_FW"
+#define HLT_BOE_ILI7806S_INI_REQUEST_PATH		"mp_hlt_boe_ili7806s.ini"
+#define HLT_BOE_ILI7806S_FW_REQUEST_PATH		"ILITEK_FW"
+static unsigned char CTPM_FW_HLT_BOE_ILI7806S[] = {
+	#include "ILI7807S_O3_LH_AP_0x04_MP_0x04_20210121.ili"
+};
+
+#define TXD_BOE_9MASK_ILI7806S_INI_NAME_PATH		"/vendor/firmware/mp_txd_boe_9mask_ili7806s.ini"
+#define TXD_BOE_9MASK_ILI7806S_FW_FILP_PATH		"/sdcard/ILITEK_FW"
+#define TXD_BOE_9MASK_ILI7806S_INI_REQUEST_PATH		"mp_txd_boe_9mask_ili7806s.ini"
+#define TXD_BOE_9MASK_ILI7806S_FW_REQUEST_PATH		"ILITEK_FW"
+static unsigned char CTPM_FW_TXD_BOE_9MASK_ILI7806S[] = {
+	#include "ILI7807S_O3_LH_AP_0x04_MP_0x04_20210121.ili"
 };
 
 #define AUO_INI_NAME_PATH		"/sdcard/mp_auo.ini"

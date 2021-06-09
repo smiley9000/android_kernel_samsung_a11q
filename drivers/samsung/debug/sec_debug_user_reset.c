@@ -36,6 +36,9 @@
 #ifdef CONFIG_RKP_CFP_ROPP
 #include <linux/rkp_cfp.h>
 #endif
+#ifdef CONFIG_CFP_ROPP
+#include <linux/cfp.h>
+#endif
 
 #include <linux/qseecom.h>
 #include "sec_debug_internal.h"
@@ -51,6 +54,7 @@ static char rr_str[][3] = {
 	[USER_UPLOAD_CAUSE_BOOTLOADER_REBOOT]	= "BP",
 	[USER_UPLOAD_CAUSE_POWER_ON]		= "NP",
 	[USER_UPLOAD_CAUSE_THERMAL]		= "TP",
+	[USER_UPLOAD_CAUSE_CP_CRASH]		= "CP",
 	[USER_UPLOAD_CAUSE_UNKNOWN]		= "NP",
 };
 
@@ -170,6 +174,10 @@ static void reset_reason_update_and_clear(void)
 	case USER_UPLOAD_CAUSE_THERMAL:
 		p_health->daily_rr.tp++;
 		p_health->rr.tp++;
+		break;
+	case USER_UPLOAD_CAUSE_CP_CRASH:
+		p_health->daily_rr.cp++;
+		p_health->rr.cp++;
 		break;
 	default:
 		p_health->daily_rr.np++;
@@ -318,8 +326,8 @@ static int __init sec_debug_ex_info_setup(char *str)
 		sec_debug_reset_ex_info_size =
 					(size + 0x1000 - 1) & ~(0x1000 - 1);
 
-		pr_info("ex info phy=0x%llx, size=0x%x\n",
-				(uint64_t)sec_debug_reset_ex_info_paddr,
+		pr_info("ex info phy=%pa, size=0x%x\n",
+				&sec_debug_reset_ex_info_paddr,
 				sec_debug_reset_ex_info_size);
 	}
 	return 1;
@@ -456,9 +464,6 @@ static const struct file_operations sec_debug_rdx_bootdev_fops = {
 
 static int __init sec_debug_map_rdx_bootdev_region(void)
 {
-#if !defined(CONFIG_SAMSUNG_USER_TRIAL) && defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-	return 0;
-#else
 	struct device_node *parent, *node;
 	int ret = 0;
 	u64 temp[2];
@@ -503,7 +508,6 @@ static int __init sec_debug_map_rdx_bootdev_region(void)
 
 	mutex_unlock(&rdx_bootdev_mutex);
 	return 0;
-#endif
 }
 arch_initcall_sync(sec_debug_map_rdx_bootdev_region);
 
@@ -936,8 +940,9 @@ static void sec_restore_modem_reset_data(void)
 		return;
 	}
 
-	if (sec_debug_get_reset_reason() != USER_UPLOAD_CAUSE_PANIC) {
-		pr_info("it was not kernel panic.\n");
+	if ((sec_debug_get_reset_reason() != USER_UPLOAD_CAUSE_PANIC)
+			&& (sec_debug_get_reset_reason() != USER_UPLOAD_CAUSE_CP_CRASH)) {
+		pr_info("it was not kernel panic/cp crash.\n");
 		return;
 	}
 
@@ -951,8 +956,9 @@ static void sec_restore_modem_reset_data(void)
 
 void __deprecated sec_debug_summary_modem_print(void)
 {
-	if (sec_debug_get_reset_reason() != USER_UPLOAD_CAUSE_PANIC) {
-		pr_info("it was not kernel panic.\n");
+	if ((sec_debug_get_reset_reason() != USER_UPLOAD_CAUSE_PANIC)
+			&& (sec_debug_get_reset_reason() != USER_UPLOAD_CAUSE_CP_CRASH)) {
+		pr_info("it was not kernel panic/cp crash.\n");
 		return;
 	}
 
@@ -1448,15 +1454,19 @@ void sec_debug_backtrace(void)
 	static int once;
 	struct stackframe frame;
 	int skip_callstack = 0;
-#ifdef CONFIG_RKP_CFP_ROPP
+#if defined (CONFIG_CFP_ROPP) || defined(CONFIG_RKP_CFP_ROPP)
 	unsigned long where = 0x0;
 #endif
 
 	if (!once++) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
+		start_backtrace(&frame, (unsigned long)__builtin_frame_address(0), (unsigned long)sec_debug_backtrace);
+#else
 		frame.fp = (unsigned long)__builtin_frame_address(0);
 		frame.pc = (unsigned long)sec_debug_backtrace;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 		frame.sp = current_stack_pointer;
+#endif
 #endif
 		while (1) {
 			int ret;
@@ -1466,7 +1476,7 @@ void sec_debug_backtrace(void)
 				break;
 
 			if (skip_callstack++ > 3) {
-#ifdef CONFIG_RKP_CFP_ROPP
+#if defined (CONFIG_CFP_ROPP) || defined(CONFIG_RKP_CFP_ROPP)
 				where = frame.pc;
 				if (where>>40 != 0xffffff)
 					where = ropp_enable_backtrace(where,

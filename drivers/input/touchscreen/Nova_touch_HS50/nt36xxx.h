@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/syscalls.h>
 #include <linux/regulator/consumer.h>
+#include <linux/power_supply.h>
 
 #include <linux/input/sec_cmd.h>
 
@@ -102,10 +103,14 @@ extern const uint16_t touch_key_array[TOUCH_KEY_NUM];
 extern const uint16_t gesture_key_array[];
 #endif
 #define BOOT_UPDATE_FIRMWARE 1
-#define BOOT_UPDATE_FIRMWARE_NAME "novatek_ts_fw.bin"
-#define MP_UPDATE_FIRMWARE_NAME   "novatek_ts_mp.bin"
+
 #define POINT_DATA_CHECKSUM 1
 #define POINT_DATA_CHECKSUM_LEN 65
+
+#define USB_DETECT_IN 1
+#define USB_DETECT_OUT 0
+#define CMD_CHARGER_ON	(0x53)
+#define CMD_CHARGER_OFF (0x51)
 
 #if NOVA_POWER_SOURCE_CUST_EN
 #define LCM_LAB_MIN_UV                      5500000
@@ -117,7 +122,7 @@ extern const uint16_t gesture_key_array[];
 #define NVT_TS_DEFAULT_UMS_FW		"/sdcard/firmware/tsp/novatek_ts_fw.bin"
 
 //---ESD Protect.---
-#define NVT_TOUCH_ESD_PROTECT 0
+#define NVT_TOUCH_ESD_PROTECT 1
 #define NVT_TOUCH_ESD_CHECK_PERIOD 1500	/* ms */
 #define NVT_TOUCH_WDT_RECOVERY 1
 
@@ -130,6 +135,13 @@ struct nvt_ts_event_proximity {
 	u8 reserved_2;
 } __attribute__ ((packed));
 #endif
+
+enum TP_FW_UPGRADE_STATUS {
+	FW_STAT_INIT = 0,
+	FW_UPDATING = 90,
+	FW_UPDATE_PASS = 100,
+	FW_UPDATE_FAIL = -1
+};
 
 struct nvt_ts_event_coord {
 	u8 status:2;
@@ -186,6 +198,8 @@ struct nvt_ts_data {
 	uint16_t addr;
 	int8_t phys[32];
 	char md_name[32];
+	char md_nomalfw_rq_name[32];
+	char md_mpfw_rq_name[32];
 #if defined(CONFIG_FB)
 #ifdef _MSM_DRM_NOTIFY_H_
 	struct notifier_block drm_notif;
@@ -217,6 +231,7 @@ struct nvt_ts_data {
 	struct mutex xbuf_lock;
 	bool irq_enabled;
 	bool tp_is_enabled;
+	int fw_update_stat;
 	u8 fw_ver_ic[4];
 	u8 fw_ver_ic_bar;
 	u8 fw_ver_bin[4];
@@ -237,6 +252,10 @@ struct nvt_ts_data {
 #ifdef CONFIG_SPI_MT65XX
     struct mtk_chip_config spi_ctrl;
 #endif
+	struct notifier_block charger_notif;
+	struct workqueue_struct *nvt_charger_notify_wq;
+	struct work_struct charger_notify_work;
+	int usb_plug_status;
 };
 
 #if NVT_TOUCH_PROC
@@ -279,7 +298,10 @@ enum {
 
 enum NVT_TP_MODEL {
 	MODEL_DEFAULT = 0,
-	MODEL_TRULY_TRULY,
+	MODEL_TRULY_TRULY_PID7211,
+	/*HS50 code for SR-QL3095-01-755 by weiqiang at 2020/10/02 start*/
+	MODEL_TRULY_TRULY_PID721A
+	/*HS50 code for SR-QL3095-01-755 by weiqiang at 2020/10/02 end*/
 };
 
 //---SPI READ/WRITE---

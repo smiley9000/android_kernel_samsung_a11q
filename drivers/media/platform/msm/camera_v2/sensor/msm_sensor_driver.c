@@ -106,8 +106,45 @@ static struct v4l2_subdev_info msm_sensor_driver_subdev_info[] = {
 #ifdef CONFIG_MSM_CAMERA_HS70ADDNODE
 /*HS50 code for HS50-SR-QL3095-01-97 by chenjun6 at 2020/09/08 start*/
 #ifdef HUAQIN_KERNEL_PROJECT_HS50
+/*HS50 code for HS50-SR-QL3095-01-0000 by xiayu at 2020/09/16 start*/
+/*HS50 code for HS50-SR-QL3095-01-0000 by zhudaqian at 2020/11/3 start*/
+/*HS50 code for HS50-SR-QL3095-01-0000 by xuxianwei at 2021/01/21 start*/
+static char *cameraMateriaNumber_define[][2]={
+	{"hi556_hs50_txd",  "HQ20207877000"}, 	//5m
+	{"hi556_hs50_ofilm","HQ20207870000"},
+	{"gc5035_hs50_sjc", "HQ20207970000"},
+	{"gc5035_hs50_jk", "HQ20207900000"},
+	{"gc5035_com_hs50_jk", "HQ20207935000"}, //gc5035com
+	{"hi1336_hs50_txd",	"HQ20207878000"}, 	//13M
+	{"s5k3l6_hs50_ofilm","HQ20207869000"},
+	{"gc13053_hs50_ly",	"HQ20207896000"},
+	{"s5k3l6_hs50_sjc","HQ20207969000"},
+	{"ov13b10_hs50_qt",	"HQ20207396000"},
+	{"hi1336_hs50_hlt","HQ20207953000"},
+	{"gc02m1_hs50_ly","HQ20207879000"},		//2M depth
+	{"gc2375h_hs50_cxt","HQ20207875000"},
+	{"gc2375h_hs50_sjc","HQ20207971000"},
+	{"ov02b1b_hs50_jk","HQ20207899000"},
+	{"gc02m1_hs50_jk", 	"HQ20207897000"},  //2M macro
+	{"gc02m1_hs50_sjc","HQ20207972000"},
+	{"ov02b10_hs50_ly",	"HQ20207881000"},
+	{"gc02m1_hs50_cxt",	"HQ20207874000"},
+	{"ov02b10_88_hs50_ly","HQ20207880000"},	//2m88
+	{"gc02m1_88_hs50_cxt","HQ20207873000"},
+	{"gc02m1_88_hs50_jk","HQ20207898000"},
+	{"hi556_wide_hs50_ly","HQ20207882000"}, //5m
+	{"gc5035_hs50_cxt","HQ20207876000"},
+	{"s5k5e9_hs50_ofilm","HQ20207868000"},
+	{"hi1634_hs50_hlt","HQ20207985000"},  //16m
+	{"s5k3p9_hs50_jk","HQ20207986000"},
+	{"NULL","NULL"}							//must keep this line exist
+};
+/*HS50 code for HS50-SR-QL3095-01-0000 by xuxianwei at 2021/01/21 end*/
+/*HS50 code for HS50-SR-QL3095-01-0000 by zhudaqian at 2020/11/3 end*/
+/*HS50 code for HS50-SR-QL3095-01-0000 by xiayu at 2020/09/16 end*/
 static char *cameraModuleInfo[4] = {NULL, NULL, NULL, NULL};
 static char *cameraModuleInfoBack4[5] = {NULL, NULL, NULL, NULL,NULL};
+static char *cameraMateriaNumber[5] = {NULL, NULL, NULL, NULL,NULL};
 #else
 /*HS50 code for HS50-SR-QL3095-01-97 by chenjun6 at 2020/09/08 end*/
 static char *cameraModuleInfo[4] = {NULL, NULL, NULL, NULL};
@@ -120,35 +157,50 @@ static char *cameraModuleInfo[3] = {NULL, NULL, NULL};
 #define CAM_MODULE_INFO "cameraModuleInfo"
 
 static struct proc_dir_entry *proc_entry;
-
+/*HS50 code for HS50-SR-QL3095-01-0000 by xiayu at 2020/09/16 start*/
+#ifdef HUAQIN_KERNEL_PROJECT_HS50
+static void materianumber_judge(char *sensor_name,int meterial_index){
+	int index = 0;
+	for(index=0;(0!=strcmp("NULL",cameraMateriaNumber_define[index][0]));index++)
+	{
+		if(strcmp(sensor_name,cameraMateriaNumber_define[index][0]) == 0)
+		{
+			cameraMateriaNumber[meterial_index]=cameraMateriaNumber_define[index][1];
+			CDBG("sensor_name is %s,cameraMateriaNumber is %s",sensor_name,cameraMateriaNumber[meterial_index]);
+			break;
+		}
+	}
+}
+#endif
+/*HS50 code for HS50-SR-QL3095-01-0000 by xiayu at 2020/09/16 end*/
 /* Huaqin add for HS60-01000000042 add camera node by xuxianwei at 2019/07/30 start */
 static ssize_t cameraModuleInfo_read
 	(struct file *file, char __user *page, size_t size, loff_t *ppos)
 {
-	char buf[150] = {0};
+	char buf[300] = {0};
 	int rc = 0;
 /* Huaqin add for HS70-120 add camera node by chengzhi at 2019/10/02 start */
 #ifdef CONFIG_MSM_CAMERA_HS70ADDNODE
 /* Huaqin add for HS50-SR-QL3095-01-24 add camera node by xuxianwei at 2020/08/13 start */
 #if defined (HUAQIN_KERNEL_PROJECT_HS50)
-/*HS50 code for HS50-SR-QL3095-01-97 by chenjun6 at 2020/09/08 start*/
 	CDBG("read board_id is 0x%x",hs50_board_id);
-	if((hs50_board_id==0x40)||(hs50_board_id==0x90)||(hs50_board_id==0xA0)||(hs50_board_id==0xC0))
-		snprintf(buf, 150,
-			"rear camera:%s\nfront camera:%s\nsub camera:%s\nrear2 camera:%s\nrear3 camera:%s\n",
-			cameraModuleInfoBack4[0],
-			cameraModuleInfoBack4[1],
-			cameraModuleInfoBack4[2],
-			cameraModuleInfoBack4[3],
-			cameraModuleInfoBack4[4]);
-	else
-/*HS50 code for HS50-SR-QL3095-01-97 by chenjun6 at 2020/09/08 end*/
-		snprintf(buf, 150,
-				"rear camera:%s\nfront camera:%s\nsub camera:%s\nrear2 camera:%s\n",
-				cameraModuleInfo[0],
-				cameraModuleInfo[1],
-				cameraModuleInfo[2],
-				cameraModuleInfo[3]);
+	if((hs50_board_id==0x40)||(hs50_board_id==0x90)||(hs50_board_id==0xA0)||(hs50_board_id==0xC0)||(hs50_board_id==0xE0)){
+		snprintf(buf, 300,
+			"rear camera:%s : %s\nfront camera:%s : %s\nsub camera:%s : %s\nrear2 camera:%s : %s\nrear3 camera:%s : %s\n",
+			cameraModuleInfoBack4[0],cameraMateriaNumber[0],
+			cameraModuleInfoBack4[1],cameraMateriaNumber[1],
+			cameraModuleInfoBack4[2],cameraMateriaNumber[2],
+			cameraModuleInfoBack4[3],cameraMateriaNumber[3],
+			cameraModuleInfoBack4[4],cameraMateriaNumber[4]);
+	}
+	else{
+			snprintf(buf, 300,
+				"rear camera:%s : %s\nfront camera:%s : %s\nsub camera:%s : %s\nrear2 camera:%s : %s\n",
+				cameraModuleInfo[0],cameraMateriaNumber[0],
+				cameraModuleInfo[1],cameraMateriaNumber[1],
+				cameraModuleInfo[2],cameraMateriaNumber[2],
+				cameraModuleInfo[3],cameraMateriaNumber[3]);
+	}
 #else
 	snprintf(buf, 150,
 			"rear camera:%s\nfront camera:%s\nsub camera:%s\nrear2 camera:%s\n",
@@ -1249,10 +1301,18 @@ CSID_TG:
 #if CAM_MODULE_INFO_CONFIG
 /*HS50 code for HS50-SR-QL3095-01-97 by chenjun6 at 2020/09/08 start*/
 #ifdef HUAQIN_KERNEL_PROJECT_HS50
-	if((hs50_board_id==0x40)||(hs50_board_id==0x90)||(hs50_board_id==0xA0)||(hs50_board_id==0xC0))
-	cameraModuleInfoBack4[slave_info->camera_id] = slave_info->sensor_name;
-	else
-	cameraModuleInfo[slave_info->camera_id] = slave_info->sensor_name;
+	if((hs50_board_id==0x40)||(hs50_board_id==0x90)||(hs50_board_id==0xA0)||(hs50_board_id==0xC0)){
+		cameraModuleInfoBack4[slave_info->camera_id] = slave_info->sensor_name;
+		materianumber_judge(slave_info->sensor_name,slave_info->camera_id);
+		CDBG("sensor_name is %s,camera_id is %d,cameraMateriaNumber is %s",
+		slave_info->sensor_name,slave_info->camera_id,cameraMateriaNumber[slave_info->camera_id]);
+	}
+	else{
+		cameraModuleInfo[slave_info->camera_id] = slave_info->sensor_name;
+		materianumber_judge(slave_info->sensor_name,slave_info->camera_id);
+		CDBG("sensor_name is %s,camera_id is %d,cameraMateriaNumber is %s",
+		slave_info->sensor_name,slave_info->camera_id,cameraMateriaNumber[slave_info->camera_id]);
+	}
 #else
 /*HS50 code for HS50-SR-QL3095-01-97 by chenjun6 at 2020/09/08 end*/
 	cameraModuleInfo[slave_info->camera_id] = slave_info->sensor_name;

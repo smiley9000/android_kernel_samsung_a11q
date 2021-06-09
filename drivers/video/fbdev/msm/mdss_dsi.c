@@ -57,6 +57,12 @@ enum {
 	GX_HSD_ST7703_720P_VIDEO_PANEL
 	};
 extern int mdss_mdp_parse_panel_id_kernel(void);
+#ifdef HQ_FACTORY_BUILD
+extern int test_flag;
+extern struct device_node *wdy_pan_node;
+extern int mdss_dsi_parse_dcs_cmds(struct device_node *np,
+		 struct dsi_panel_cmds *pcmds, char *cmd_key, char *link_key);
+#endif /* HQ_FACTORY_BUILD */
 /* HS70 code for HS70-133 by liufurong at 2019/10/31 start */
 /*HS50 code for SR-QL3095-01-120 by gaozhengwei at 2020/07/31 start*/
 enum tp_module_used tp_is_used = UNKNOWN_TP;
@@ -1063,7 +1069,7 @@ static ssize_t mdss_dsi_cmd_write(struct file *file, const char __user *p,
 {
 	struct buf_data *pcmds = file->private_data;
 	ssize_t ret = 0;
-	int blen = 0;
+	unsigned int blen = 0;
 	char *string_buf;
 
 	mutex_lock(&pcmds->dbg_mutex);
@@ -1075,6 +1081,11 @@ static ssize_t mdss_dsi_cmd_write(struct file *file, const char __user *p,
 
 	/* Allocate memory for the received string */
 	blen = count + (pcmds->sblen);
+	if (blen > U32_MAX - 1) {
+		mutex_unlock(&pcmds->dbg_mutex);
+		return -EINVAL;
+	}
+
 	string_buf = krealloc(pcmds->string_buf, blen + 1, GFP_KERNEL);
 	if (!string_buf) {
 		pr_err("%s: Failed to allocate memory\n", __func__);
@@ -1082,6 +1093,7 @@ static ssize_t mdss_dsi_cmd_write(struct file *file, const char __user *p,
 		return -ENOMEM;
 	}
 
+	pcmds->string_buf = string_buf;
 	/* Writing in batches is possible */
 	ret = simple_write_to_buffer(string_buf, blen, ppos, p, count);
 	if (ret < 0) {
@@ -1091,7 +1103,6 @@ static ssize_t mdss_dsi_cmd_write(struct file *file, const char __user *p,
 	}
 
 	string_buf[ret] = '\0';
-	pcmds->string_buf = string_buf;
 	pcmds->sblen = count;
 	mutex_unlock(&pcmds->dbg_mutex);
 	return ret;
@@ -1781,6 +1792,55 @@ static int mdss_dsi_pinctrl_init(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef HQ_FACTORY_BUILD
+static int mdss_reload_initcode(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	pr_err("[LCD sorting] ctrl_pdata is %p\n",ctrl_pdata);
+	pr_err("[LCD sorting] test_flag is %d\n",test_flag);
+	pr_err("[LCD sorting] node is %p\n",wdy_pan_node);
+	if (ctrl_pdata->panel_data.panel_info.reload_flag) {
+		pr_err("[LCD sorting] get true panel\n");
+		if (wdy_pan_node) {
+			switch (test_flag)
+			{
+			case 0:
+				mdss_dsi_parse_dcs_cmds(wdy_pan_node, &ctrl_pdata->on_cmds,
+					"qcom,mdss-dsi-on-command",
+					"qcom,mdss-dsi-on-command-state");
+				break;
+			case 1:
+				mdss_dsi_parse_dcs_cmds(wdy_pan_node, &ctrl_pdata->on_cmds,
+					"qcom,mdss-dsi-on-command1",
+					"qcom,mdss-dsi-on-command-state");
+				break;
+			case 2:
+				mdss_dsi_parse_dcs_cmds(wdy_pan_node, &ctrl_pdata->on_cmds,
+					"qcom,mdss-dsi-on-command2",
+					"qcom,mdss-dsi-on-command-state");
+				break;
+			case 3:
+				mdss_dsi_parse_dcs_cmds(wdy_pan_node, &ctrl_pdata->on_cmds,
+					"qcom,mdss-dsi-on-command3",
+					"qcom,mdss-dsi-on-command-state");
+				break;
+			case 4:
+				mdss_dsi_parse_dcs_cmds(wdy_pan_node, &ctrl_pdata->on_cmds,
+					"qcom,mdss-dsi-on-command4",
+					"qcom,mdss-dsi-on-command-state");
+				break;
+
+			default:
+				mdss_dsi_parse_dcs_cmds(wdy_pan_node, &ctrl_pdata->on_cmds,
+					"qcom,mdss-dsi-on-command",
+					"qcom,mdss-dsi-on-command-state");
+				break;
+			}
+		}
+    }
+	return 0;
+}
+#endif /* HQ_FACTORY_BUILD */
+
 static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
@@ -1795,6 +1855,9 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
+#ifdef HQ_FACTORY_BUILD
+	ret = mdss_reload_initcode(ctrl_pdata);
+#endif /* HQ_FACTORY_BUILD */
 	mipi  = &pdata->panel_info.mipi;
 
 	pr_debug("%s+: ctrl=%pK ndx=%d cur_power_state=%d ctrl_state=%x\n",
@@ -3619,6 +3682,10 @@ static int mdss_dsi_parse_dt_params(struct platform_device *pdev,
 	sdata->cmd_clk_ln_recovery_en =
 		of_property_read_bool(pdev->dev.of_node,
 		"qcom,dsi-clk-ln-recovery");
+
+	sdata->skip_clamp =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,mdss-skip-clamp");
 
 	return 0;
 }

@@ -445,6 +445,11 @@ struct sx93XX
     /* msecs only set if useIrqTimer is true */
     int irqTimeout;
 
+#if defined(CONFIG_SENSORS)
+    struct device *factory_device;
+    bool skip_data;
+#endif
+
     /* work struct for worker function */
     struct delayed_work dworker;
     struct wakeup_source sx9325_wakelock;

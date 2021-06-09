@@ -23,7 +23,7 @@
 
 /*#define HX_INSPT_DBG*/
 
-#define HX_RSLT_OUT_PATH "/sdcard/tpdata"
+#define HX_RSLT_OUT_PATH "/sdcard/tpdata/"
 #define HX_RSLT_OUT_FILE "hx_test_result.txt"
 #define PI(x...) pr_cont(x)
 #define HX_SZ_ICID 60

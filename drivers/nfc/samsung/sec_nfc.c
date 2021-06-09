@@ -483,8 +483,10 @@ static void sec_nfc_set_mode(struct sec_nfc_info *info,
 
     if (mode != SEC_NFC_MODE_OFF) {
         msleep(SEC_NFC_VEN_WAIT_TIME);
-        gpio_set_value(pdata->ven, SEC_NFC_PW_ON);
+        /*Huaqin modify for P201102-08150 by zhangshuli at 2020/11/18 start */
         sec_nfc_clk_ctl_enable(info);
+        gpio_set_value(pdata->ven, SEC_NFC_PW_ON);
+        /*Huaqin modify for P201102-08150 by zhangshuli at 2020/11/18 end */
 #ifdef CONFIG_SEC_NFC_DEDICATED_CLK
         val |= 0xC0000000;
         writel(val, info->clkctrl);

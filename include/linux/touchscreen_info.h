@@ -14,7 +14,8 @@ enum tp_module_used {
 	ILITEK_ILI7806S,
 	NOVATECH,
 	FOCALTECH,
-    HIMAX
+    	HIMAX,
+	CHIPONE
 };
 
 #endif

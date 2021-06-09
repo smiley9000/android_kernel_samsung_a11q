@@ -116,6 +116,10 @@ struct abov_platform_data {
     int (*get_is_nirq_low)(unsigned irq_gpio);
     int (*init_platform_hw)(void);
     void (*exit_platform_hw)(void);
+#if defined(CONFIG_SENSORS)
+    struct device *factory_device;
+    struct device *factory_device_sub;
+#endif
 };
 typedef struct abov_platform_data abov_platform_data_t;
 typedef struct abov_platform_data *pabov_platform_data_t;
@@ -168,6 +172,12 @@ struct abovXX {
     u8 read_reg;
     bool loading_fw;
     struct work_struct fw_update_work;
+    /* HS50 code for HS50EU-191 by xiongxiaoliang at 20201021 start */
+    struct notifier_block notifier_charger;
+    struct work_struct update_charger;
+    struct workqueue_struct *charger_notify_wq;
+    int usb_plug_status;
+    /* HS50 code for HS50EU-191 by xiongxiaoliang at 20201021 end */
 
     /* Function Pointers */
     int (*init)(pabovXX_t this);
@@ -178,6 +188,10 @@ struct abovXX {
     int (*refreshStatus)(pabovXX_t this);
     int (*get_nirq_low)(unsigned irq_gpio);
     void (*statusFunc[MAX_NUM_STATUS_BITS])(pabovXX_t this);
+#if defined(CONFIG_SENSORS)
+    char channel_status;
+    bool skip_data;
+#endif
 };
 
 void abovXX_suspend(pabovXX_t this);
@@ -185,4 +199,7 @@ void abovXX_resume(pabovXX_t this);
 int abovXX_sar_init(pabovXX_t this);
 int abovXX_sar_remove(pabovXX_t this);
 
+/* HS50 code for HS50EU-191 by xiongxiaoliang at 20201021 start */
+void sar_plat_charger_init(void);
+/* HS50 code for HS50EU-191 by xiongxiaoliang at 20201021 end */
 #endif

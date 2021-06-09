@@ -1044,6 +1044,9 @@ int32_t nvt_update_firmware(char *firmware_name)
 		goto download_fail;
 	}
 
+	NVT_LOG("FW upgrade pass\n");
+	ts->fw_update_stat = FW_UPDATE_PASS;
+
 	NVT_LOG("Update firmware success! <%ld us>\n",
 			(end.tv_sec - start.tv_sec)*1000000L + (end.tv_usec - start.tv_usec));
 
@@ -1052,6 +1055,9 @@ int32_t nvt_update_firmware(char *firmware_name)
 	if (ret) {
 		NVT_ERR("nvt_get_fw_info failed. (%d)\n", ret);
 	}
+
+	if(ts->nvt_charger_notify_wq != NULL)
+		queue_work(ts->nvt_charger_notify_wq, &ts->charger_notify_work);
 
 download_fail:
 	if (!IS_ERR_OR_NULL(bin_map)) {
@@ -1209,7 +1215,7 @@ int nvt_ts_fw_update_from_bin(struct nvt_ts_data *ts)
 {
 	int ret = 0;
 	mutex_lock(&ts->lock);
-	ret = nvt_update_firmware(BOOT_UPDATE_FIRMWARE_NAME);
+	ret = nvt_update_firmware(ts->md_nomalfw_rq_name);
 	mutex_unlock(&ts->lock);
 
 	return ret;
@@ -1220,9 +1226,9 @@ int nvt_ts_fw_update_from_mp_bin(struct nvt_ts_data *ts, bool is_start)
 	int ret = 0;
 
 	if (is_start)
-		ret = nvt_update_firmware(MP_UPDATE_FIRMWARE_NAME);
+		ret = nvt_update_firmware(ts->md_mpfw_rq_name);
 	else
-		ret = nvt_update_firmware(BOOT_UPDATE_FIRMWARE_NAME);
+		ret = nvt_update_firmware(ts->md_nomalfw_rq_name);
 
 	return ret;
 }
@@ -1273,7 +1279,7 @@ void Boot_Update_Firmware(struct work_struct *work)
 	int ret;
 
 	mutex_lock(&ts->lock);
-	nvt_update_firmware(BOOT_UPDATE_FIRMWARE_NAME);
+	nvt_update_firmware(ts->md_nomalfw_rq_name);
 	mutex_unlock(&ts->lock);
 
 	/* Parsing criteria from dts */

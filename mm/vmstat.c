@@ -1090,6 +1090,12 @@ const char * const vmstat_text[] = {
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
 	"speculative_pgfault"
 #endif
+#ifdef CONFIG_ZRAM_LRU_WRITEBACK
+	"sqzr_objcnt",
+	"sqzr_count",
+	"sqzr_read",
+	"sqzr_write",
+#endif
 #endif /* CONFIG_VM_EVENT_COUNTERS */
 };
 #endif /* CONFIG_PROC_FS || CONFIG_SYSFS || CONFIG_NUMA */
@@ -1790,7 +1796,7 @@ static int __init setup_vmstat(void)
 #endif
 #ifdef CONFIG_PROC_FS
 	proc_create("buddyinfo", S_IRUGO, NULL, &fragmentation_file_operations);
-	proc_create("pagetypeinfo", S_IRUGO, NULL, &pagetypeinfo_file_ops);
+	proc_create("pagetypeinfo", 0400, NULL, &pagetypeinfo_file_ops);
 	proc_create("vmstat", S_IRUGO, NULL, &proc_vmstat_file_operations);
 	proc_create("zoneinfo", S_IRUGO, NULL, &proc_zoneinfo_file_operations);
 #endif

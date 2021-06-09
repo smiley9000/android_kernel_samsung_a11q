@@ -14,6 +14,8 @@
  */
 
 #include "himax_inspection.h"
+#include <linux/time.h>
+#include <linux/rtc.h>
 
 static int g_gap_vertical_partial = 3;
 static int *g_gap_vertical_part;
@@ -2014,6 +2016,22 @@ int hx_get_size_str_arr(char **input)
 	return result;
 }
 
+static char *get_date_time_str(void)
+{
+	struct timespec now_time;
+	struct rtc_time rtc_now_time;
+	static char time_data_buf[128] = { 0 };
+
+	getnstimeofday(&now_time);
+	rtc_time_to_tm(now_time.tv_sec, &rtc_now_time);
+	snprintf(time_data_buf, sizeof(time_data_buf), "%04d%02d%02d-%02d%02d%02d",
+		(rtc_now_time.tm_year + 1900), rtc_now_time.tm_mon + 1,
+		rtc_now_time.tm_mday, rtc_now_time.tm_hour, rtc_now_time.tm_min,
+		rtc_now_time.tm_sec);
+
+	return time_data_buf;
+}
+
 static void hx_print_ic_id(void)
 {
 	uint8_t i;
@@ -2047,7 +2065,7 @@ static int himax_self_test_data_init(void)
 	const struct firmware *file_entry = NULL;
 	struct himax_ts_data *ts = private_ts;
 	char *file_name_1 = "hx_criteria.dri";
-	char *file_name_2 = "hx_criteria.csv";
+	char *file_name_2 = ts->himax_csv_name;
 	int ret = HX_INSP_OK;
 	int err = 0;
 	int i = 0;
@@ -2153,9 +2171,8 @@ static int himax_self_test_data_init(void)
 		}
 	}
 
-	snprintf(g_file_path, (int)(strlen(HX_RSLT_OUT_PATH)
-			+ strlen(HX_RSLT_OUT_FILE)+1),
-			"%s%s", HX_RSLT_OUT_PATH, HX_RSLT_OUT_FILE);
+	sprintf(g_file_path,
+			"%s%s_%s_%s", HX_RSLT_OUT_PATH, get_date_time_str(),ts->himax_name,HX_RSLT_OUT_FILE);
 
 	file_w_flag = true;
 	return ret;
@@ -2238,12 +2255,12 @@ static int himax_chip_self_test(struct seq_file *s, void *v)
 	}
 
 #if defined(HX_ZERO_FLASH)
-	g_core_fp.fp_0f_op_file_dirly(MPAP_FWNAME);
+	g_core_fp.fp_0f_op_file_dirly(private_ts->himax_mpfw_rq_name);
 	hx_turn_on_mp_func(1);
 	g_core_fp.fp_reload_disable(0);
 	if (private_ts->debug_log_level & BIT(4))
 		I("%s:start sense on!\n", __func__);
-	g_core_fp.fp_sense_on(0x00);
+	g_core_fp.fp_power_on_init();
 	if (private_ts->debug_log_level & BIT(4))
 		I("%s:end sense on!\n", __func__);
 #endif
@@ -2343,7 +2360,7 @@ static int himax_chip_self_test(struct seq_file *s, void *v)
 
 #if defined(HX_ZERO_FLASH)
 	private_ts->in_self_test = 0;
-	g_core_fp.fp_0f_op_file_dirly(BOOT_UPGRADE_FWNAME);
+	g_core_fp.fp_0f_op_file_dirly(private_ts->himax_nomalfw_rq_name);
 	hx_turn_on_mp_func(0);
 	/* set N frame back to default value 1*/
 	g_core_fp.fp_register_write(tmp_addr, 4, tmp_data, 0);
@@ -2369,7 +2386,7 @@ static int himax_chip_self_test(struct seq_file *s, void *v)
 		himax_switch_mode_inspection(HX_RAWDATA);
 		if (private_ts->debug_log_level & BIT(4))
 			I("%s:start sense on!\n", __func__);
-		g_core_fp.fp_sense_on(0);
+		g_core_fp.fp_power_on_init();
 		if (private_ts->debug_log_level & BIT(4))
 			I("%s:end sense on!\n", __func__);
 		himax_wait_sorting_mode(HX_RAWDATA);
@@ -2377,7 +2394,7 @@ static int himax_chip_self_test(struct seq_file *s, void *v)
 		I("%s: It has been in Normal!\n", __func__);
 		if (private_ts->debug_log_level & BIT(4))
 			I("%s:start sense on!\n", __func__);
-		g_core_fp.fp_sense_on(0);
+		g_core_fp.fp_power_on_init();
 		if (private_ts->debug_log_level & BIT(4))
 			I("%s:end sense on!\n", __func__);
 	}
@@ -2441,12 +2458,12 @@ static int himax_chip_self_test_for_hq(void)
 	}
 
 #if defined(HX_ZERO_FLASH)
-	g_core_fp.fp_0f_op_file_dirly(MPAP_FWNAME);
+	g_core_fp.fp_0f_op_file_dirly(private_ts->himax_mpfw_rq_name);
 	hx_turn_on_mp_func(1);
 	g_core_fp.fp_reload_disable(0);
 	if (private_ts->debug_log_level & BIT(4))
 		I("%s:start sense on!\n", __func__);
-	g_core_fp.fp_sense_on(0x00);
+	g_core_fp.fp_power_on_init();
 	if (private_ts->debug_log_level & BIT(4))
 		I("%s:end sense on!\n", __func__);
 #endif
@@ -2546,7 +2563,7 @@ static int himax_chip_self_test_for_hq(void)
 
 #if defined(HX_ZERO_FLASH)
 	private_ts->in_self_test = 0;
-	g_core_fp.fp_0f_op_file_dirly(BOOT_UPGRADE_FWNAME);
+	g_core_fp.fp_0f_op_file_dirly(private_ts->himax_nomalfw_rq_name);
 	hx_turn_on_mp_func(0);
 	/* set N frame back to default value 1*/
 	g_core_fp.fp_register_write(tmp_addr, 4, tmp_data, 0);
@@ -2572,7 +2589,7 @@ static int himax_chip_self_test_for_hq(void)
 		himax_switch_mode_inspection(HX_RAWDATA);
 		if (private_ts->debug_log_level & BIT(4))
 			I("%s:start sense on!\n", __func__);
-		g_core_fp.fp_sense_on(0);
+		g_core_fp.fp_power_on_init();
 		if (private_ts->debug_log_level & BIT(4))
 			I("%s:end sense on!\n", __func__);
 		himax_wait_sorting_mode(HX_RAWDATA);
@@ -2580,7 +2597,7 @@ static int himax_chip_self_test_for_hq(void)
 		I("%s: It has been in Normal!\n", __func__);
 		if (private_ts->debug_log_level & BIT(4))
 			I("%s:start sense on!\n", __func__);
-		g_core_fp.fp_sense_on(0);
+		g_core_fp.fp_power_on_init();
 		if (private_ts->debug_log_level & BIT(4))
 			I("%s:end sense on!\n", __func__);
 	}

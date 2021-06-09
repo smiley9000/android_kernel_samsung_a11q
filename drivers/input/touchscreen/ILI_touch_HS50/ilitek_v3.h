@@ -171,19 +171,19 @@
 
 #define ILI_INFO(fmt, arg...)						\
 ({									\
-	pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
+	pr_info("ILITEK:[INFO] (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
 })									\
 
 #define ILI_ERR(fmt, arg...)						\
 ({									\
-	pr_err("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
+	pr_err("ILITEK:[ERR] (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
 })									\
 
 extern bool debug_en;
 #define ILI_DBG(fmt, arg...)						\
 do {									\
 	if (debug_en)						\
-	pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
+	pr_info("ILITEK:[DEBUG] (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
 } while (0)
 
 extern struct sec_cmd ili_commands[];
@@ -337,11 +337,23 @@ enum TP_MODEL {
 	MODEL_TXD,
 	MODEL_TM,
 	MODEL_LS_PANDA,
+	MODEL_GX_BOE_9MASK,
+	/*HS50 code for SR-QL3095-01-743 by fengzhigang at 2020/09/27 start*/
+	MODEL_LS_PANDA_SWID22,
+	/*HS50 code for SR-QL3095-01-743 by fengzhigang at 2020/09/27 end*/
 	/*HS50 code for HS50-1707 by gaozhengwei at 2020/09/14 start*/
 	MODEL_LS_PANDA_LRPOL,
+	/*HS50 code for HS50-4157 by gaozhengwei at 2020/11/07 start*/
+	MODEL_LS_PANDA_SBLPOL_LJFPC,
+	/*HS50 code for HS50-4157 by gaozhengwei at 2020/11/07 end*/
+	MODEL_JDD_PANDA,
 	MODEL_SKW_PANDA,
 	MODEL_SKW_PANDA_LRPOL,
+	MODEL_HLT_B0E,
 	/*HS50 code for HS50-1707 by gaozhengwei at 2020/09/14 end*/
+	/*HS50 code for SR-QL3095-01-927  by fengzhigang at 2021/02/09 start*/
+	MODEL_TXD_BOE_9MASK,
+	/*HS50 code for SR-QL3095-01-927  by fengzhigang at 2021/02/09 end*/
 	MODEL_LS_MDT,
 	MODEL_TXD_INX_ILI9882N,
 };

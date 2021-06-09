@@ -313,55 +313,6 @@ static int initialize(pabovXX_t this)
     return -ENOMEM;
 }
 
-#if defined(CONFIG_SENSORS)
-static void abov_diff_getdata(pabovXX_t this)
-{
-    int ret = 0;
-    int retry = 3;
-    u8 r_buf[2] = {0,};
-
-    while (retry--) {
-        ret |= read_register(this, ABOV_CH0_DIFF_MSB_REG, &r_buf[0]);
-        ret |= read_register(this, ABOV_CH0_DIFF_LSB_REG, &r_buf[1]);
-        if (ret == 0)
-            break;
-        LOG_ERR("read failed(%d)\n", retry);
-        usleep_range(10000, 10000);
-    }
-    this->diff = (r_buf[0] << 8) | r_buf[1];
-
-    LOG_INFO("abov_diff_getdata() diff=%d \n", this->diff);
-}
-
-static void abov_check_first_status(pabovXX_t this, int enable)
-{
-    u16 grip_thd;
-    pabov_t pDevice = NULL;
-    struct input_dev *input_sar = NULL;
-
-    pDevice = this->pDevice;
-    input_sar = pDevice->pbuttonInformation->input_sar;
-
-    if (this->skip_data == true) {
-        LOG_INFO("skip event..\n");
-        return;
-    }
-
-    grip_thd = SS_SAR_THD;
-    LOG_INFO("abov_check_first_status() THD=%d \n", grip_thd);	
-
-    abov_diff_getdata(this);
-
-    if (grip_thd < this->diff) {
-        input_report_rel(input_sar, REL_MISC, 1);
-    } else {
-        input_report_rel(input_sar, REL_MISC, 2);
-    }
-
-    input_sync(input_sar);
-}
-#endif
-
 /**
  * brief Handle what to do when a touch occurs
  * param this Pointer to main parent struct
@@ -696,13 +647,9 @@ static ssize_t abovxx_enable_store (struct device *dev,
         msleep(20);
 
         this->statusFunc[0](this);
-        abov_check_first_status(this, 1);
         mEnabled = 1;
     } else if (enable == 0) {
         LOG_DBG("disable capsensor\n");
-
-		input_report_abs(input_sar, ABS_DISTANCE, 5);
-		input_sync(input_sar);
 
         if(this->irq_disabled == 1){
             disable_irq(this->irq);
@@ -787,6 +734,8 @@ static ssize_t abovxx_onoff_store(struct device *dev,
 
 static DEVICE_ATTR(name, S_IRUGO, abovxx_name_show, NULL);
 static DEVICE_ATTR(vendor, S_IRUGO, abovxx_vendor_show, NULL);
+static DEVICE_ATTR(onoff, S_IRUGO | S_IWUSR | S_IWGRP,
+        abovxx_onoff_show, abovxx_onoff_store);
 
 static struct device_attribute *sensor_attrs[] = {
     &dev_attr_name,

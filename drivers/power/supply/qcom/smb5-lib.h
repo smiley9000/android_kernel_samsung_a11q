@@ -1117,6 +1117,9 @@ int smblib_deinit(struct smb_charger *chg);
 #if !defined(HQ_FACTORY_BUILD)	//ss version
 #if defined(CONFIG_AFC)
 int is_afc_result(struct smb_charger *chg,int result);
+/* HS50 add for P201023-04559 re-connect vbus when shutdown with afc TA by wenyaqi at 2020/10/28 start */
+void ss_vbus_control_gpio_set(struct smb_charger *chg, int set_gpio_val);
+/* HS50 add for P201023-04559 re-connect vbus when shutdown with afc TA by wenyaqi at 2020/10/28 end */
 #endif
 #endif
 /*HS70 add for HS70-919 enable AFC function by qianyingdong at 2019/11/18 end*/

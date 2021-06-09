@@ -65,10 +65,21 @@ static void aot_enable(void *device_data)
 		if (sec->cmd_param[0] == 0) {
 			info->SMWP_enable = 0;
 			info->gesture_cust_en[0] = 0;
+			/*HS50 code for HS50-3915 by gaozhengwei at 2020/11/03 start*/
+			hs50_lcm_vregs_ctrl = false;
+			/*HS50 code for HS50-3915 by gaozhengwei at 2020/11/03 end*/
 		} else {
 			info->SMWP_enable = 1;
 			info->gesture_cust_en[0] = 1;
+			/*HS50 code for HS50-3915 by gaozhengwei at 2020/11/03 start*/
+			hs50_lcm_vregs_ctrl = true;
+			/*HS50 code for HS50-3915 by gaozhengwei at 2020/11/03 end*/
 		}
+/*HS50 code for HS50-3032 by fengzhigang at 2020/10/04 start*/
+#if defined(HX_SMART_WAKEUP)
+	g_core_fp.fp_set_SMWP_enable(info->SMWP_enable, private_ts->suspended);
+#endif
+/*HS50 code for HS50-3032 by fengzhigang at 2020/10/04 end*/
 		snprintf(buff, sizeof(buff), "%s", "OK");
 		sec->cmd_state = SEC_CMD_STATUS_OK;
 	}

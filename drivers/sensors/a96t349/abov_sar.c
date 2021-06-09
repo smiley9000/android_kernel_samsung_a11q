@@ -41,6 +41,9 @@
 #include <linux/sensor/sensors_core.h>
 #endif
 
+/* HS50 code for HS50NA-47 by xiongxiaoliang at 20201009 start */
+#define JUDGE_BOARD_ID
+/* HS50 code for HS50NA-47 by xiongxiaoliang at 20201009 end */
 #ifdef JUDGE_BOARD_ID
 #include <soc/qcom/smem.h>
 u32 pcb_id_code = 0;
@@ -166,7 +169,7 @@ static int read_register(pabovXX_t this, u8 address, u8 *value)
 static int manual_offset_calibration(pabovXX_t this)
 {
     s32 returnValue = 0;
-
+    LOG_INFO("manual_offset_calibration()\n");
     returnValue = write_register(this, ABOV_RECALI_REG, 0x01);
     return returnValue;
 }
@@ -212,6 +215,80 @@ static struct attribute *abov_attributes[] = {
 static struct attribute_group abov_attr_group = {
     .attrs = abov_attributes,
 };
+
+/* HS50 code for HS50EU-191 by xiongxiaoliang at 20201021 start */
+static int sar_charger_notifier_callback(struct notifier_block *nb,
+                                unsigned long val, void *v) {
+    int ret = 0;
+    struct power_supply *psy = NULL;
+    union power_supply_propval prop;
+
+    LOG_INFO("sar_charger_notifier_callback\n");
+    psy= power_supply_get_by_name("usb");
+    if (!psy) {
+        LOG_INFO("Couldn't get usbpsy\n");
+        return -EINVAL;
+    }
+
+    LOG_INFO("sar_charger_notifier_callback val = %ld\n", val);
+    if (!strcmp(psy->desc->name, "usb")) {
+        if (psy && val == POWER_SUPPLY_PROP_STATUS) {
+            ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_PRESENT, &prop);
+
+            LOG_INFO("power_supply_get_property prop.intval = %d\n", prop.intval);
+
+            if (ret < 0) {
+                LOG_INFO("Couldn't get POWER_SUPPLY_PROP_ONLINE rc = %d\n", ret);
+                return ret;
+            } else {
+                if(abov_sar_ptr->usb_plug_status == 2)
+                    abov_sar_ptr->usb_plug_status = prop.intval;
+
+                if(abov_sar_ptr->usb_plug_status != prop.intval) {
+                    LOG_INFO("usb prop.intval = %d\n", prop.intval);
+                    abov_sar_ptr->usb_plug_status = prop.intval;
+
+                    if(abov_sar_ptr->charger_notify_wq != NULL)
+                        queue_work(abov_sar_ptr->charger_notify_wq, &abov_sar_ptr->update_charger);
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+static void sar_update_charger(struct work_struct *work)
+{
+    int ret = 0;
+
+    ret = manual_offset_calibration(abov_sar_ptr);
+
+    if(ret != 2) {
+        LOG_INFO("manual_offset_calibration failed\n");
+    }
+}
+
+void sar_plat_charger_init(void)
+{
+    int ret = 0;
+
+    abov_sar_ptr->usb_plug_status = 2;
+    abov_sar_ptr->charger_notify_wq = create_singlethread_workqueue("sar_charger_wq");
+
+    if (!abov_sar_ptr->charger_notify_wq) {
+        LOG_INFO("allocate sar_charger_notify_wq failed\n");
+        return;
+    }
+
+    INIT_WORK(&abov_sar_ptr->update_charger, sar_update_charger);
+
+    abov_sar_ptr->notifier_charger.notifier_call = sar_charger_notifier_callback;
+    ret = power_supply_reg_notifier(&abov_sar_ptr->notifier_charger);
+
+    if (ret < 0)
+        LOG_INFO("power_supply_reg_notifier failed\n");
+}
+/* HS50 code for HS50EU-191 by xiongxiaoliang at 20201021 start */
 
 /**
  * fn static int read_regStat(pabovXX_t this)
@@ -587,7 +664,16 @@ static void abov_platform_data_of_init(struct i2c_client *client,
 
     pplatData->pbuttonInformation = &smtcButtonInformation;
 
-    ret = of_property_read_string(np, "label1", &pplatData->fw_name);
+    /* HS50 code for HS50NA-47 by xiongxiaoliang at 20201009 start */
+    pcb_abov_conf();
+    /*HS50 code for HS50NA-330 by xiongxiaoliang at 20201203 start*/
+    if(!(((pcb_id_code >=0x27) && (pcb_id_code <= 0x2A)) || (pcb_id_code == 0x2F))){
+    /*HS50 code for HS50NA-330 by xiongxiaoliang at 20201203 end*/
+        ret = of_property_read_string(np, "label1", &pplatData->fw_name);
+    }else{
+        ret = of_property_read_string(np, "label2", &pplatData->fw_name);
+    }
+    /* HS50 code for HS50NA-47 by xiongxiaoliang at 20201009 end */
     if (ret < 0) {
         LOG_DBG("firmware name read error!\n");
         return;
@@ -711,9 +797,14 @@ static int enable_bottom(unsigned int enable)
     pabovXX_t this = abov_sar_ptr;
     pabov_t pDevice = NULL;
     struct input_dev *input_bottom_sar = NULL;
+    struct _buttonInfo *buttons = NULL;
+    struct _buttonInfo *pCurrentButton  = NULL;
+    u8 i = 0;
 
     pDevice = this->pDevice;
     input_bottom_sar = pDevice->pbuttonInformation->input_bottom_sar;
+    buttons = pDevice->pbuttonInformation->buttons;
+    pCurrentButton = &buttons[0];
 
     if (enable == 1) {
         if(this->channel_status == 0) {
@@ -730,6 +821,24 @@ static int enable_bottom(unsigned int enable)
         }
         LOG_DBG("this->channel_status = 0x%x \n",this->channel_status);
 
+#if defined(CONFIG_SENSORS)
+        if (this->skip_data == true) {
+            LOG_INFO("%s - skip grip event\n", __func__);
+        } else {
+#endif
+            read_register(this, ABOV_IRQSTAT_LEVEL_REG, &i);
+            if ((i & pCurrentButton->mask) == (pCurrentButton->mask & 0x05)) {
+                input_report_rel(input_bottom_sar, REL_MISC, 1);
+                input_sync(input_bottom_sar);
+                pCurrentButton->state = S_PROX;
+            } else {
+                input_report_rel(input_bottom_sar, REL_MISC, 2);
+                input_sync(input_bottom_sar);
+                pCurrentButton->state = IDLE;
+            }
+#if defined(CONFIG_SENSORS)
+        }
+#endif
         touchProcess(this);
     } else if (enable == 0) {
         if(this->channel_status & 0x01) {
@@ -756,9 +865,14 @@ static int enable_top(unsigned int enable)
     pabovXX_t this = abov_sar_ptr;
     pabov_t pDevice = NULL;
     struct input_dev *input_top_sar = NULL;
+    struct _buttonInfo *buttons = NULL;
+    struct _buttonInfo *pCurrentButton  = NULL;
+    u8 i = 0;
 
     pDevice = this->pDevice;
     input_top_sar = pDevice->pbuttonInformation->input_top_sar;
+    buttons = pDevice->pbuttonInformation->buttons;
+    pCurrentButton = &buttons[1];
 
     if (enable == 1) {
         if(this->channel_status == 0) {
@@ -775,6 +889,24 @@ static int enable_top(unsigned int enable)
         }
         LOG_DBG("this->channel_status = 0x%x \n",this->channel_status);
 
+#if defined(CONFIG_SENSORS)
+        if (this->skip_data == true) {
+            LOG_INFO("%s - skip grip event\n", __func__);
+        } else {
+#endif
+            read_register(this, ABOV_IRQSTAT_LEVEL_REG, &i);
+            if ((i & pCurrentButton->mask) == (pCurrentButton->mask & 0x05)) {
+                input_report_rel(input_top_sar, REL_MISC, 1);
+                input_sync(input_top_sar);
+                pCurrentButton->state = S_PROX;
+            } else {
+                input_report_rel(input_top_sar, REL_MISC, 2);
+                input_sync(input_top_sar);
+                pCurrentButton->state = IDLE;
+            }
+#if defined(CONFIG_SENSORS)
+        }
+#endif
         touchProcess(this);
     } else if (enable == 0) {
         if(this->channel_status & 0x02) {
@@ -1261,6 +1393,9 @@ static int abov_fw_update(bool force)
     fw_file_version = fw->data[5];
     checksum_h_bin = fw->data[8];
     checksum_l_bin = fw->data[9];
+    /* HS50 code for HS50NA-47 by xiongxiaoliang at 20201009 start */
+    LOG_INFO("abov_fw_update. checksum_h_bin:%x && checksum_l_bin:%x\n", checksum_h_bin, checksum_l_bin);
+    /* HS50 code for HS50NA-47 by xiongxiaoliang at 20201009 end */
 
     if ((force) || (fw_version < fw_file_version) || (fw_modelno != fw_file_modeno))
         fw_upgrade = true;
@@ -1472,7 +1607,9 @@ static int abov_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 #ifdef JUDGE_BOARD_ID
     pcb_abov_conf();
-    if (!(((pcb_id_code >=0x26)&& (pcb_id_code <= 0x2A)) || (pcb_id_code == 0x2E)))
+    /*HS50 code for HS50NA-330 by xiongxiaoliang at 20201203 start*/
+    if (!(((pcb_id_code >=0x26) && (pcb_id_code <= 0x2A)) || (pcb_id_code == 0x2E) || (pcb_id_code == 0x2F)))
+    /*HS50 code for HS50NA-330 by xiongxiaoliang at 20201203 end*/
     {
         LOG_ERR("Isn't EU and NA\n");
         return -ENODEV;
@@ -1587,6 +1724,10 @@ static int abov_probe(struct i2c_client *client, const struct i2c_device_id *id)
     }
 
     abov_sar_ptr = this;
+
+    /* HS50 code for HS50EU-191 by xiongxiaoliang at 20201021 start */
+    sar_plat_charger_init();
+    /* HS50 code for HS50EU-191 by xiongxiaoliang at 20201021 end */
 
     /* for accessing items in user data (e.g. calibrate) */
     ret = sysfs_create_group(&client->dev.kobj, &abov_attr_group);

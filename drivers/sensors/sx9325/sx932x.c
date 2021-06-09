@@ -367,7 +367,7 @@ static void EnableDisableSarSensor(psx93XX_t this, int state)
                 input_report_key(input, KEY_SAR_FAR, 1);
                 input_report_key(input, KEY_SAR_FAR, 0);
                 #else
-                input_report_abs(input, ABS_DISTANCE, 5);
+                input_report_rel(input, REL_MISC, 2);
                 #endif
                 pCurrentButton->state = IDLE;
                 dev_info(this->pdev, "cap button %d IDLE.\n",counter);
@@ -380,7 +380,7 @@ static void EnableDisableSarSensor(psx93XX_t this, int state)
                     input_report_key(input, KEY_SAR_CLOSE, 1);
                     input_report_key(input, KEY_SAR_CLOSE, 0);
                     #else
-                    input_report_abs(input, ABS_DISTANCE, 0);
+                    input_report_rel(input, REL_MISC, 1);
                     #endif
                     pCurrentButton->state = S_PROX; //更新状态
                 }
@@ -390,7 +390,7 @@ static void EnableDisableSarSensor(psx93XX_t this, int state)
                     input_report_key(input, KEY_SAR_FAR, 1);
                     input_report_key(input, KEY_SAR_FAR, 0);
                     #else
-                    input_report_abs(input, ABS_DISTANCE, 5);
+                    input_report_rel(input, REL_MISC, 2);
                     #endif
                     pCurrentButton->state = IDLE;//更新状态
                     dev_info(this->pdev, "cap Button %d IDLE.\n",counter);
@@ -459,23 +459,66 @@ static struct attribute_group sx932x_attr_group = {
 
 #if defined(CONFIG_SENSORS)
 static ssize_t sx932x_vendor_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+            struct device_attribute *attr, char *buf)
 {
     return snprintf(buf, PAGE_SIZE, "%s\n", VENDOR_NAME);
 }
 
 static ssize_t sx932x_name_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+            struct device_attribute *attr, char *buf)
 {
     return snprintf(buf, PAGE_SIZE, "%s\n", MODEL_NAME);
 }
 
+static ssize_t sx932x_onoff_show(struct device *dev,
+            struct device_attribute *attr, char *buf)
+{
+    psx93XX_t this = dev_get_drvdata(dev);
+
+    return snprintf(buf, PAGE_SIZE, "%u\n", !this->skip_data);
+}
+
+static ssize_t sx932x_onoff_store(struct device *dev,
+            struct device_attribute *attr, const char *buf, size_t count)
+{
+    u8 val;
+    int ret;
+    psx93XX_t this = dev_get_drvdata(dev);
+    psx932x_t pDevice = NULL;
+    struct input_dev *input = NULL;
+
+    pDevice = this->pDevice;
+    input = pDevice->pbuttonInformation->input;
+
+    ret = kstrtou8(buf, 2, &val);
+    if (ret) {
+        pr_err("[SX932x]: %s - Invalid Argument\n", __func__);
+        return ret;
+    }
+
+    if (val == 0) {
+        this->skip_data = true;
+        if (enable_flags) {
+            input_report_rel(input, REL_MISC, 2);
+            input_sync(input);
+        }
+    } else {
+        this->skip_data = false;
+    }
+
+    pr_info("[SX932x]: %s -%u\n", __func__, val);
+    return count;
+}
+
 static DEVICE_ATTR(name, S_IRUGO, sx932x_name_show, NULL);
 static DEVICE_ATTR(vendor, S_IRUGO, sx932x_vendor_show, NULL);
+static DEVICE_ATTR(onoff, S_IRUGO | S_IWUSR | S_IWGRP,
+        sx932x_onoff_show, sx932x_onoff_store);
 
 static struct device_attribute *sensor_attrs[] = {
     &dev_attr_name,
     &dev_attr_vendor,
+    &dev_attr_onoff,
     NULL,
 };
 #endif
@@ -549,6 +592,10 @@ static int initialize(psx93XX_t this)
         msleep(100); /* make sure everything is running */
         manual_offset_calibration(this);
 
+#if defined(CONFIG_SENSORS)
+        this->skip_data = false;
+#endif
+
         /* re-enable interrupt handling */
         enable_irq(this->irq);
         enable_irq_wake(this->irq);
@@ -592,6 +639,13 @@ static void touchProcess(psx93XX_t this)
             return;
         }
 
+#if defined(CONFIG_SENSORS)
+        if (this->skip_data == true) {
+            dev_info(this->pdev, "%s - skip grip event\n", __func__);
+            return;
+        }
+#endif
+
         for (counter = 0; counter < numberOfButtons; counter++) {//循环更新所有通道的状态
             pCurrentButton = &buttons[counter]; //counter代表的是当前通道号
             if (pCurrentButton==NULL) {
@@ -606,7 +660,7 @@ static void touchProcess(psx93XX_t this)
                         input_report_key(input, KEY_SAR_CLOSE, 1);
                         input_report_key(input, KEY_SAR_CLOSE, 0);
                         #else
-                        input_report_abs(input, ABS_DISTANCE, 0);
+                        input_report_rel(input, REL_MISC, 1);
                         #endif
                         pCurrentButton->state = S_PROX; //更新状态
                     }
@@ -623,7 +677,7 @@ static void touchProcess(psx93XX_t this)
                         input_report_key(input, KEY_SAR_FAR, 1);
                         input_report_key(input, KEY_SAR_FAR, 0);
                         #else
-                        input_report_abs(input, ABS_DISTANCE, 5);
+                        input_report_rel(input, REL_MISC, 2);
                         #endif
                         pCurrentButton->state = IDLE;//更新状态
                     }
@@ -880,7 +934,7 @@ static int sx932x_probe(struct i2c_client *client, const struct i2c_device_id *i
     }
 
 #if defined(CONFIG_SENSORS)
-    err = sensors_register(&pplatData->factory_device, pplatData, sensor_attrs, MODULE_NAME);
+    err = sensors_register(&this->factory_device, this, sensor_attrs, MODULE_NAME);
     if (err) {
         dev_err(&client->dev, "%s - cound not register sensor(%d).\n",
             __func__, err);
@@ -916,8 +970,7 @@ static int sx932x_probe(struct i2c_client *client, const struct i2c_device_id *i
     __set_bit(KEY_SAR_FAR, input->keybit);
     __set_bit(KEY_SAR_CLOSE, input->keybit);
     #else
-    __set_bit(EV_ABS, input->evbit);
-    input_set_abs_params(input, ABS_DISTANCE, -1, 100, 0, 0);
+    input_set_capability(input, EV_REL, REL_MISC);
     #endif
 
     /* save the input pointer and finish initialization */
@@ -930,6 +983,16 @@ static int sx932x_probe(struct i2c_client *client, const struct i2c_device_id *i
         input_free_device(input);
         goto exit_register_input;
     }
+
+#if defined(CONFIG_SENSORS)
+    input_set_drvdata(input, this);
+    err = sysfs_create_file(&input->dev.kobj, &dev_attr_enable.attr);
+    if (err) {
+        dev_err(&client->dev, "%s - cound not input create file(%d)\n",
+            __func__, err);
+        goto exit_input_create;
+    }
+#endif
 
     sx93XX_IRQ_init(this);
     /* call init function pointer (this should initialize all registers */
@@ -947,12 +1010,16 @@ static int sx932x_probe(struct i2c_client *client, const struct i2c_device_id *i
     return 0;
 
 exit_init:
+#if defined(CONFIG_SENSORS)
+    sysfs_remove_file(&input->dev.kobj, &dev_attr_enable.attr);
+exit_input_create:
+#endif
     input_unregister_device(input);
-exit_register_input: 
+exit_register_input:
 exit_alloc_input:
 exit_init_platform_hw:
 #if defined(CONFIG_SENSORS)
-    sensors_unregister(pplatData->factory_device, sensor_attrs);
+    sensors_unregister(this->factory_device, sensor_attrs);
 exit_sensors_register:
 #endif
     sysfs_remove_group(&client->dev.kobj, &sx932x_attr_group);

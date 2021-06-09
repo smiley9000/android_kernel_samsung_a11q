@@ -1,7 +1,7 @@
 /*
  * QTI Secure Execution Environment Communicator (QSEECOM) driver
  *
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -513,7 +513,6 @@ static int get_qseecom_keymaster_status(char *str)
 	return 1;
 }
 __setup("androidboot.keymaster=", get_qseecom_keymaster_status);
-
 
 static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			const void *req_buf, void *resp_buf)
@@ -1582,15 +1581,14 @@ static int __qseecom_decrease_clk_ref_count(enum qseecom_ce_hw_instance ce)
 		ret = -EINVAL;
 		goto err_dec_ref_cnt;
 	}
-
 	if (qclk->clk_access_cnt == 2)
 		qclk->clk_access_cnt--;
-
 err_dec_ref_cnt:
 	mutex_unlock(&clk_access_lock);
 	return ret;
 }
 /*HS70 code for HS60-382 by zhuqiang at 2019/11/06 end*/
+
 
 static int qseecom_scale_bus_bandwidth_timer(uint32_t mode)
 {
@@ -1775,8 +1773,8 @@ static int qseecom_set_client_mem_param(struct qseecom_dev_handle *data,
 
 	if ((req.ifd_data_fd <= 0) || (req.virt_sb_base == NULL) ||
 					(req.sb_len == 0)) {
-		pr_err("Inavlid input(s)ion_fd(%d), sb_len(%d), vaddr(0x%pK)\n",
-			req.ifd_data_fd, req.sb_len, req.virt_sb_base);
+		pr_err("Invalid input(s)ion_fd(%d), sb_len(%d)\n",
+			req.ifd_data_fd, req.sb_len);
 		return -EFAULT;
 	}
 	if (!access_ok(VERIFY_WRITE, (void __user *)req.virt_sb_base,
@@ -1875,6 +1873,16 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 			if (ptr_svc->svc.listener_id == lstnr) {
 				ptr_svc->listener_in_use = true;
 				ptr_svc->rcv_req_flag = 1;
+				rc = msm_ion_do_cache_op(qseecom.ion_clnt,
+					ptr_svc->ihandle,
+					ptr_svc->sb_virt,
+					ptr_svc->sb_length,
+					ION_IOC_INV_CACHES);
+				if (rc) {
+					pr_err("cache opp failed %d\n", rc);
+					status = QSEOS_RESULT_FAILURE;
+					goto err_resp;
+				}
 				wake_up_interruptible(&ptr_svc->rcv_req_wq);
 				break;
 			}
@@ -2203,6 +2211,16 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 			if (ptr_svc->svc.listener_id == lstnr) {
 				ptr_svc->listener_in_use = true;
 				ptr_svc->rcv_req_flag = 1;
+				rc = msm_ion_do_cache_op(qseecom.ion_clnt,
+					ptr_svc->ihandle,
+					ptr_svc->sb_virt,
+					ptr_svc->sb_length,
+					ION_IOC_INV_CACHES);
+				if (rc) {
+					pr_err("cache opp failed %d\n", rc);
+					status = QSEOS_RESULT_FAILURE;
+					goto err_resp;
+				}
 				wake_up_interruptible(&ptr_svc->rcv_req_wq);
 				break;
 			}
@@ -5121,8 +5139,10 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 		}
 		perf_enabled = true;
 	}
-	if (!strcmp(data->client.app_name, "securemm"))
+	if (!strcmp(data->client.app_name, "securemm") ||
+	    !strcmp(data->client.app_name, "bgapp")) {
 		data->use_legacy_cmd = true;
+	}
 
 	ret = __qseecom_send_cmd(data, &req);
 	data->use_legacy_cmd = false;

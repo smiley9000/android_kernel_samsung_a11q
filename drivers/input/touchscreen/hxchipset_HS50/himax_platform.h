@@ -146,5 +146,8 @@ int hx_lcm_bias_power_deinit(struct himax_ts_data *data);
 int hx_lcm_power_source_ctrl(struct himax_ts_data *data, int enable);
 extern int himax_get_array_size(void);
 /*HS50 code for SR-QL3095-01-379 by fengzhigang at 2020/09/07 end*/
-extern bool g_system_is_shutdown;
+/*HS50 code for HS50-3915 by gaozhengwei at 2020/11/03 start*/
+extern bool hs50_lcm_vregs_ctrl;
+extern void hx_lcm_power_source_ctrl_disable(void);
+/*HS50 code for HS50-3915 by gaozhengwei at 2020/11/03 end*/
 #endif

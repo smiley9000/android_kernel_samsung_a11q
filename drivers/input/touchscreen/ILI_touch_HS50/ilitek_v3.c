@@ -53,7 +53,7 @@ static void ilitek_resume_by_ddi_work(struct work_struct *work)
 	ILI_INFO("TP resume end by wq\n");
 	ili_wq_ctrl(WQ_ESD, ENABLE);
 	ili_wq_ctrl(WQ_BAT, ENABLE);
-	ilits->tp_suspend = false;
+	//ilits->tp_suspend = false;
 	mutex_unlock(&ilits->touch_mutex);
 }
 
@@ -65,6 +65,8 @@ void ilitek_resume_by_ddi(void)
 	}
 
 	mutex_lock(&ilits->touch_mutex);
+	ilits->tp_suspend = false;
+
 	#if ILI_POWER_SOURCE_CUST_EN
 		ili_lcm_power_source_ctrl(ilits, 1);
 		ILI_INFO("resume enable vsp/vsn\n");
@@ -637,7 +639,6 @@ int ili_sleep_handler(int mode)
 		} else {
 			if (ili_ic_func_ctrl("sleep", DEEP_SLEEP_IN) < 0)
 				ILI_ERR("Write deep sleep in cmd failed\n");
-				ILI_ERR("Write deep sleep in cmd failed\n");
 			#if ILI_POWER_SOURCE_CUST_EN
 				ili_lcm_power_source_ctrl(ilits, 0);//disable vsp/vsn
 				ILI_INFO("sleep suspend disable vsp/vsn\n");
@@ -712,7 +713,7 @@ int ili_fw_upgrade_handler(void *data)
 #if CHARGER_NOTIFIER_CALLBACK
 #if KERNEL_VERSION(4, 1, 0) <= LINUX_VERSION_CODE
 		/* add_for_charger_start */
-		if((ilits->usb_plug_status)&&(ilits->actual_tp_mode !=P5_X_FW_TEST_MODE)) {
+		if(ilits->actual_tp_mode !=P5_X_FW_TEST_MODE) {
 			ret = ili_ic_func_ctrl("plug", !ilits->usb_plug_status);// plug in
 			if(ret<0) {
 				ILI_ERR("Write plug in failed\n");
@@ -799,10 +800,7 @@ int ili_set_tp_data_len(int format, bool send, u8* data)
 		ctrl = DATA_FORMAT_DEBUG_LITE_CMD;
 		break;
 	case DATA_FORMAT_DEBUG_LITE_AREA:
-		if(cmd == NULL) {
-			ILI_ERR("DATA_FORMAT_DEBUG_LITE_AREA error cmd\n");
-			return -1;
-		}
+
 		debug_ctrl = DATA_FORMAT_DEBUG_LITE_AREA_CMD;
 		ctrl = DATA_FORMAT_DEBUG_LITE_CMD;
 		cmd[3] = data[0];
@@ -1083,6 +1081,18 @@ static int ilitek_get_tp_module(void)
 		fw_num = MODEL_LS_MDT;
 	} else  if (NULL != strstr(panel_name, "mdss_dsi_txd_qc_ili9882n_720p_video")){
 		fw_num = MODEL_TXD_INX_ILI9882N;
+	} else  if (NULL != strstr(panel_name, "mdss_dsi_liansi_panda_ili9882h_swid22_720p_video")){
+		fw_num = MODEL_LS_PANDA_SWID22;
+	} else  if (NULL != strstr(panel_name, "mdss_dsi_gx_boe_9mask_epd6301_swid62_720p_video")){
+		fw_num = MODEL_GX_BOE_9MASK;
+	} else  if (NULL != strstr(panel_name, "mdss_dsi_ls_panda_sblpol_ljfpc_ili9882h_swid23_720p_video")){
+		fw_num = MODEL_LS_PANDA_SBLPOL_LJFPC;
+	} else  if (NULL != strstr(panel_name, "mdss_dsi_jdd_panda_ili9882h_swid70_720p_video")){
+		fw_num = MODEL_JDD_PANDA;
+	} else  if (NULL != strstr(panel_name, "mdss_dsi_hlt_boe_ili7806s_swid81_720p_video")){
+		fw_num = MODEL_HLT_B0E;
+	} else  if (NULL != strstr(panel_name, "mdss_dsi_txd_boe_9mask_ili7806s_swid53_720p_video")){
+		fw_num = MODEL_TXD_BOE_9MASK;
 	}
 	else fw_num = MODEL_DEF;
 	/*
@@ -1100,6 +1110,17 @@ static void ili_update_tp_module_info(void)
 	module = ilitek_get_tp_module();
 
 	switch (module) {
+	/*HS50 code for SR-QL3095-01-743 by fengzhigang at 2020/09/27 start*/
+	case MODEL_LS_PANDA_SWID22:
+		ilits->md_name = "LS_PANDA_SWID22";
+		ilits->md_fw_filp_path = LS_PANDA_SWID22_FW_FILP_PATH;
+		ilits->md_fw_rq_path = LS_PANDA_SWID22_FW_REQUEST_PATH;
+		ilits->md_ini_path = LS_PANDA_SWID22_INI_NAME_PATH;
+		ilits->md_ini_rq_path = LS_PANDA_SWID22_INI_REQUEST_PATH;
+		ilits->md_fw_ili = CTPM_FW_LS_PANDA_SWID22;
+		ilits->md_fw_ili_size = sizeof(CTPM_FW_LS_PANDA_SWID22);
+		break;
+	/*HS50 code for SR-QL3095-01-743 by fengzhigang at 2020/09/27 end*/
 	/*HS50 code for HS50-1707 by gaozhengwei at 2020/09/14 start*/
 	case MODEL_SKW_PANDA_LRPOL:
 		ilits->md_name = "SKW_PANDA_LRPOL";
@@ -1141,8 +1162,19 @@ static void ili_update_tp_module_info(void)
 		ilits->md_fw_ili = CTPM_FW_LS_PANDA;
 		ilits->md_fw_ili_size = sizeof(CTPM_FW_LS_PANDA);
 		break;
+	/*HS50 code for HS50-4157 by gaozhengwei at 2020/11/07 start*/
+	case MODEL_LS_PANDA_SBLPOL_LJFPC:
+		ilits->md_name = "LS_PANDA_SBLPOL_LJFPC";
+		ilits->md_fw_filp_path = LS_PANDA_SBLPOL_LJFPC_FW_FILP_PATH;
+		ilits->md_fw_rq_path = LS_PANDA_SBLPOL_LJFPC_FW_REQUEST_PATH;
+		ilits->md_ini_path = LS_PANDA_SBLPOL_LJFPC_INI_NAME_PATH;
+		ilits->md_ini_rq_path = LS_PANDA_SBLPOL_LJFPC_INI_REQUEST_PATH;
+		ilits->md_fw_ili = CTPM_FW_LS_PANDA_SBLPOL_LJFPC;
+		ilits->md_fw_ili_size = sizeof(CTPM_FW_LS_PANDA_SBLPOL_LJFPC);
+		break;
+	/*HS50 code for HS50-4157 by gaozhengwei at 2020/11/07 end*/
 	case MODEL_LS_MDT:
-		ilits->md_name = "LS_PANDA";
+		ilits->md_name = "LS_MDT";
 		ilits->md_fw_filp_path = LS_MDT_FW_FILP_PATH;
 		ilits->md_fw_rq_path = LS_MDT_FW_REQUEST_PATH;
 		ilits->md_ini_path = LS_MDT_INI_NAME_PATH;
@@ -1161,7 +1193,45 @@ static void ili_update_tp_module_info(void)
 		ilits->md_fw_ili = CTPM_FW_TXD_INX_ILI9882N;
 		ilits->md_fw_ili_size = sizeof(CTPM_FW_TXD_INX_ILI9882N);
 		break;
+	case MODEL_GX_BOE_9MASK:
+		ilits->md_name = "GX_BOE_9MASK_EPD6301";
+		ilits->md_fw_filp_path = GX_BOE_EPD6301_FW_FILP_PATH;
+		ilits->md_fw_rq_path = GX_BOE_EPD6301_FW_REQUEST_PATH;
+		ilits->md_ini_path = GX_BOE_EPD6301_INI_NAME_PATH;
+		ilits->md_ini_rq_path = GX_BOE_EPD6301_INI_REQUEST_PATH;
+		ilits->md_fw_ili = CTPM_FW_GX_BOE_EPD6301;
+		ilits->md_fw_ili_size = sizeof(CTPM_FW_GX_BOE_EPD6301);
+		break;
+	case MODEL_JDD_PANDA:
+		ilits->md_name = "JDD_PANDA_ILI9882N";
+		ilits->md_fw_filp_path = JDD_PANDA_ILI9882N_FW_FILP_PATH;
+		ilits->md_fw_rq_path = JDD_PANDA_ILI9882N_FW_REQUEST_PATH;
+		ilits->md_ini_path = JDD_PANDA_ILI9882N_INI_NAME_PATH;
+		ilits->md_ini_rq_path = JDD_PANDA_ILI9882N_INI_REQUEST_PATH;
+		ilits->md_fw_ili = CTPM_FW_JDD_PANDA_ILI9882N;
+		ilits->md_fw_ili_size = sizeof(CTPM_FW_JDD_PANDA_ILI9882N);
+		break;
+	case MODEL_HLT_B0E:
+		ilits->md_name = "HLT_BOE_ILI7806S";
+		ilits->md_fw_filp_path = HLT_BOE_ILI7806S_FW_FILP_PATH;
+		ilits->md_fw_rq_path = HLT_BOE_ILI7806S_FW_REQUEST_PATH;
+		ilits->md_ini_path = HLT_BOE_ILI7806S_INI_NAME_PATH;
+		ilits->md_ini_rq_path = HLT_BOE_ILI7806S_INI_REQUEST_PATH;
+		ilits->md_fw_ili = CTPM_FW_HLT_BOE_ILI7806S;
+		ilits->md_fw_ili_size = sizeof(CTPM_FW_HLT_BOE_ILI7806S);
+		break;
 	/*HS50 code for SR-QL3095-01-723 by fengzhigang at 2020/09/03 end*/
+	/*HS50 code for SR-QL3095-01-927  by fengzhigang at 2021/02/09 start*/
+	case MODEL_TXD_BOE_9MASK:
+		ilits->md_name = "TXD_BOE_9MASK_ILI7806S";
+		ilits->md_fw_filp_path = TXD_BOE_9MASK_ILI7806S_FW_FILP_PATH;
+		ilits->md_fw_rq_path = TXD_BOE_9MASK_ILI7806S_FW_REQUEST_PATH;
+		ilits->md_ini_path = TXD_BOE_9MASK_ILI7806S_INI_NAME_PATH;
+		ilits->md_ini_rq_path = TXD_BOE_9MASK_ILI7806S_INI_REQUEST_PATH;
+		ilits->md_fw_ili = CTPM_FW_TXD_BOE_9MASK_ILI7806S;
+		ilits->md_fw_ili_size = sizeof(CTPM_FW_TXD_BOE_9MASK_ILI7806S);
+		break;
+	/*HS50 code for SR-QL3095-01-927  by fengzhigang at 2021/02/09 end*/
 	case MODEL_CSOT:
 		ilits->md_name = "CSOT";
 		ilits->md_fw_filp_path = CSOT_FW_FILP_PATH;

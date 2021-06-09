@@ -754,6 +754,21 @@ static void himax_ts_isr_func(struct himax_ts_data *ts)
 
 irqreturn_t himax_ts_thread(int irq, void *ptr)
 {
+    struct himax_ts_data *ts = (struct himax_ts_data *)ptr;
+    int ret = 0;
+    if (!ts) {
+        E("[INTR]: Invalid himax_ts_data");
+        return IRQ_HANDLED;
+    }
+
+    if (ts->dev_pm_suspend) {
+        ret = wait_for_completion_timeout(&ts->dev_pm_suspend_completion, msecs_to_jiffies(700));
+        if (!ret) {
+            E("system(spi) can't finished resuming procedure, skip it");
+            return IRQ_HANDLED;
+        }
+    }
+
 	himax_ts_isr_func((struct himax_ts_data *)ptr);
 
 	return IRQ_HANDLED;
@@ -878,7 +893,7 @@ static int himax_common_suspend(struct device *dev)
 	himax_chip_common_suspend(ts);
 	return 0;
 }
-#if !defined(HX_CONTAINER_SPEED_UP)
+#if !defined(HX_CONTAINER_SPEED_UP) && !defined(HX_RESUME_BY_THREAD)
 static int himax_common_resume(struct device *dev)
 {
 	struct himax_ts_data *ts = dev_get_drvdata(dev);
@@ -922,7 +937,7 @@ int fb_notifier_callback(struct notifier_block *self,
 
 		switch (*blank) {
 		case FB_BLANK_UNBLANK:
-#if defined(HX_CONTAINER_SPEED_UP)
+#if defined(HX_CONTAINER_SPEED_UP) || defined(HX_RESUME_BY_THREAD)
 			queue_delayed_work(ts->ts_int_workqueue,
 				&ts->ts_int_work,
 				msecs_to_jiffies(DELAY_TIME));
@@ -1105,6 +1120,13 @@ int hx_lcm_power_source_ctrl(struct himax_ts_data *data, int enable)
 		E("Regulator lcm_ibb or lcm_lab is invalid");
 	return 0;
 }
+
+/*HS50 code for HS50-3915 by gaozhengwei at 2020/11/03 start*/
+void hx_lcm_power_source_ctrl_disable(void)
+{
+	hx_lcm_power_source_ctrl(private_ts, 0);
+}
+/*HS50 code for HS50-3915 by gaozhengwei at 2020/11/03 end*/
 /**himax add gesture function end***/
 /*HS50 code for SR-QL3095-01-379 by fengzhigang at 2020/09/07 end*/
 #include <linux/proc_fs.h>
@@ -1118,9 +1140,10 @@ static struct proc_dir_entry *hx_info_proc_entry;
 
 static ssize_t hx_proc_getinfo_read(struct file *filp, char __user *buff, size_t size, loff_t *pPos)
 {
+	struct himax_ts_data *ts = private_ts;
 	char buf[150] = {0};
 	int rc = 0;
-    snprintf(buf, 150, "IC=HX83102D module=GX_BOE TOUCH_VER : %X\n",ic_data->vendor_touch_cfg_ver);
+	snprintf(buf, 150, "IC=%s module=%s TOUCH_VER : %X\n",ts->chip_name,ts->himax_name,ic_data->vendor_touch_cfg_ver);
 	rc = simple_read_from_buffer(buff, size, pPos, buf, strlen(buf));
 	return rc;
 }
@@ -1243,6 +1266,87 @@ static int himax_charger_notifier_callback(struct notifier_block *nb,
 }
 #endif
 /*HS50 code for SR-QL3095-01-379 by fengzhigang at 2020/09/07 end*/
+/*HS50 code for SR-QL3095-01-735 by fengzhigang at 2020/10/10 start*/
+static int himax_get_tp_module(void)
+{
+    struct device_node *chosen = NULL;
+    const char *panel_name = NULL;
+    int fw_num = 0;
+
+    chosen = of_find_node_by_name(NULL, "chosen");
+    if (NULL == chosen)
+        E("DT: chosen node is not found\n");
+    else {
+        of_property_read_string(chosen, "bootargs", &panel_name);
+        I("cmdline:%s\n", panel_name);
+    }
+
+    if (NULL != strstr(panel_name, "qcom,mdss_dsi_gx_boe_hx83102d_7mask_720p_video")){
+        fw_num = MODEL_HX_BOE_7MASK;
+	} else if(NULL != strstr(panel_name, "qcom,mdss_dsi_gx_boe_6mask_hx83102d_720p_video")){
+		fw_num = MODEL_HX_BOE_6MASK;
+	} else if(NULL != strstr(panel_name, "qcom,mdss_dsi_txd_inx_hx83102d_swid51_720p_video")){
+		fw_num = MODEL_TXD_INX;
+	} else if(NULL != strstr(panel_name, "qcom,mdss_dsi_liansi_boe_9mask_hx83112a_swid24_720p_video")){
+		fw_num = MODEL_LS_BOE;
+	} else if(NULL != strstr(panel_name, "qcom,mdss_dsi_jz_inx_hx83102d_swid90_720p_video")){
+		fw_num = MODEL_JZ_INX;
+	}else
+		fw_num = MODEL_DEFAULT;
+       /*
+        * TODO: users should implement this function
+        * if there are various tp modules been used in projects.
+        */
+
+    return fw_num;
+}
+
+static void himax_update_module_info(void)
+{
+    int module = 0;
+    struct himax_ts_data *ts = private_ts;
+
+    module = himax_get_tp_module();
+    switch (module)
+    {
+    case MODEL_HX_BOE_7MASK:
+            strcpy(ts->himax_name,"GX_BOE_7MASK");
+            strcpy(ts->himax_nomalfw_rq_name, "Himax_7mask_firmware.bin");
+            strcpy(ts->himax_mpfw_rq_name, "Himax_7mask_mpfw.bin");
+            strcpy(ts->himax_csv_name, "hx_7mask_criteria.csv");
+            break;
+	case MODEL_HX_BOE_6MASK:
+            strcpy(ts->himax_name,"GX_BOE_6MASK");
+            strcpy(ts->himax_nomalfw_rq_name, "Himax_6mask_firmware.bin");
+            strcpy(ts->himax_mpfw_rq_name, "Himax_6mask_mpfw.bin");
+            strcpy(ts->himax_csv_name, "hx_6mask_criteria.csv");
+            break;
+	/*HS50 code for SR-QL3095-01-831 by fengzhigang at 2020/10/26 start*/
+	case MODEL_TXD_INX:
+            strcpy(ts->himax_name,"TXD_INX");
+            strcpy(ts->himax_nomalfw_rq_name, "Txd_inx_hx83102d_firmware.bin");
+            strcpy(ts->himax_mpfw_rq_name, "Txd_inx_hx83102d_mpfw.bin");
+            strcpy(ts->himax_csv_name, "Txd_inx_hx83102d_criteria.csv");
+            break;
+	case MODEL_LS_BOE:
+            strcpy(ts->himax_name,"LS_BOE");
+            strcpy(ts->himax_nomalfw_rq_name, "ls_boe_hx83112a_firmware.bin");
+            strcpy(ts->himax_mpfw_rq_name, "ls_boe_hx83112a_mpfw.bin");
+            strcpy(ts->himax_csv_name, "ls_boe_hx83112a_criteria.csv");
+            break;
+	/*HS50 code for SR-QL3095-01-831 by fengzhigang at 2020/10/26 end*/
+	case MODEL_JZ_INX:
+            strcpy(ts->himax_name,"JZ_INX");
+            strcpy(ts->himax_nomalfw_rq_name, "Txd_inx_hx83102d_firmware.bin");
+            strcpy(ts->himax_mpfw_rq_name, "Txd_inx_hx83102d_mpfw.bin");
+            strcpy(ts->himax_csv_name, "Txd_inx_hx83102d_criteria.csv");
+            break;
+    default:
+            strcpy(ts->himax_name,"UNKNOWN");
+            break;
+    }
+}
+/*HS50 code for SR-QL3095-01-735 by fengzhigang at 2020/10/10 end*/
 extern enum tp_module_used tp_is_used;
 extern struct sec_cmd himax_commands[];
 int himax_chip_common_probe(struct spi_device *spi)
@@ -1263,7 +1367,7 @@ int himax_chip_common_probe(struct spi_device *spi)
 		return -EIO;
 	}
 
-	gBuffer = kzalloc(sizeof(uint8_t) * HX_MAX_WRITE_SZ, GFP_KERNEL);
+	gBuffer = kzalloc(sizeof(uint8_t) * ( HX_MAX_WRITE_SZ + 2), GFP_KERNEL);
 	if (gBuffer == NULL) {
 		E("%s: allocate gBuffer failed\n", __func__);
 		ret = -ENOMEM;
@@ -1292,7 +1396,14 @@ int himax_chip_common_probe(struct spi_device *spi)
 	ret = himax_chip_common_init();
 	if (ret < 0)
 		goto err_common_init_failed;
-
+	/*HS50 code for SR-QL3095-01-735 by fengzhigang at 2020/10/10 start*/
+    himax_update_module_info();
+#ifdef CONFIG_HW_INFO
+    set_tp_module_name(ts->himax_name);
+#endif
+	/*HS50 code for SR-QL3095-01-735 by fengzhigang at 2020/10/10 end*/
+	ts->dev_pm_suspend = false;
+	init_completion(&ts->dev_pm_suspend_completion);
 	platform_device_register(&hwinfo_device);
 	hx_test_node_init(&hwinfo_device);//creat /sys/devices/platform/tp_wake_switch/factory_check
 	hx_extra_proc_init();//creat /proc/tp_info
@@ -1349,7 +1460,7 @@ static void himax_chip_common_shutdown(struct spi_device *spi)
 	/*HS50 code for SR-QL3095-01-715 by gaozhengwei at 2020/09/08 end*/
 /*HS50 code for SR-QL3095-01-379 by fengzhigang at 2020/09/07 start*/
 	struct himax_ts_data *ts = spi_get_drvdata(spi);
-	g_system_is_shutdown = 1;
+
 	hx_lcm_power_source_ctrl(ts, 0);//disable vsp/vsn
     I("enter shutdown fun disable vsp/vsn\n");
 /*HS50 code for SR-QL3095-01-379 by fengzhigang at 2020/09/07 end*/
@@ -1365,6 +1476,28 @@ static void himax_chip_common_shutdown(struct spi_device *spi)
 #endif
 /*HS50 code for SR-QL3095-01-715 by gaozhengwei at 2020/09/08 end*/
 }
+
+static int himax_pm_suspend(struct device *dev)
+{
+	struct himax_ts_data *ts_data = dev_get_drvdata(dev);
+	ts_data->dev_pm_suspend = true;
+	reinit_completion(&ts_data->dev_pm_suspend_completion);
+	return 0;
+}
+
+static int himax_pm_resume(struct device *dev)
+{
+	struct himax_ts_data *ts_data = dev_get_drvdata(dev);
+	ts_data->dev_pm_suspend = false;
+	complete(&ts_data->dev_pm_suspend_completion);
+	return 0;
+}
+
+static const struct dev_pm_ops himax_dev_pm_ops = {
+	.suspend = himax_pm_suspend,
+	.resume = himax_pm_resume,
+};
+
 
 static const struct dev_pm_ops himax_common_pm_ops = {
 #if (!defined(HX_CONFIG_FB)) && (!defined(HX_CONFIG_DRM))
@@ -1386,6 +1519,7 @@ static struct spi_driver himax_common_driver = {
 	.driver = {
 		.name =		HIMAX_common_NAME,
 		.owner =	THIS_MODULE,
+	    .pm = &himax_dev_pm_ops,
 		.of_match_table = himax_match_table,
 	},
 	.probe =	himax_chip_common_probe,

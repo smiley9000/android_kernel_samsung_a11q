@@ -873,7 +873,8 @@ MSM_CAMERA_I2C_BYTE_DATA);
         }
         CDBG("s5k3l6 supply_id is %d %s,sensor_slave_addr=%x", s5k3l6_supply_id, sensor_name,slave_info->sensor_slave_addr);
 }
-if(0 == strcmp(sensor_name, "gc5035_hs50_jk")||0 == strcmp(sensor_name, "gc5035_hs50_sjc")){
+/*HS50 code for HS50-SR-QL3095-01-97 gc5035com jk otp copatible by wangqi at 2020/10/13 start*/
+if(0 == strcmp(sensor_name, "gc5035_hs50_jk")||0 == strcmp(sensor_name, "gc5035_hs50_sjc")||0 == strcmp(sensor_name, "gc5035_com_hs50_jk")){
 	pr_err("gc5035 read eeprom enter %s", sensor_name);
 	sensor_i2c_client->i2c_func_tbl->i2c_write(sensor_i2c_client, 0xfc,0x01, MSM_CAMERA_I2C_BYTE_DATA);
 	sensor_i2c_client->i2c_func_tbl->i2c_write(sensor_i2c_client, 0xf4,0x40, MSM_CAMERA_I2C_BYTE_DATA);
@@ -911,7 +912,7 @@ if(0==strcmp(sensor_name, "gc5035_hs50_jk")){
 		 sensor_i2c_client->i2c_func_tbl->i2c_read(sensor_i2c_client, 0xda,&gc5035_supply_id, MSM_CAMERA_I2C_BYTE_DATA);
 		 sensor_i2c_client->i2c_func_tbl->i2c_read(sensor_i2c_client, 0xdb,&gc5035_module_id, MSM_CAMERA_I2C_BYTE_DATA);
 	}
-}else
+}else if(0==strcmp(sensor_name, "gc5035_hs50_sjc"))
 	{
         sensor_i2c_client->i2c_func_tbl->i2c_read(sensor_i2c_client, 0xc3,&gc5035_module_flag, MSM_CAMERA_I2C_BYTE_DATA);
         if((gc5035_module_flag&0xc) == 0x4){
@@ -922,23 +923,38 @@ if(0==strcmp(sensor_name, "gc5035_hs50_jk")){
 		 sensor_i2c_client->i2c_func_tbl->i2c_read(sensor_i2c_client, 0xcc,&gc5035_supply_id, MSM_CAMERA_I2C_BYTE_DATA);
 		 sensor_i2c_client->i2c_func_tbl->i2c_read(sensor_i2c_client, 0xcd,&gc5035_module_id, MSM_CAMERA_I2C_BYTE_DATA);
 	}
+}else{
+	sensor_i2c_client->i2c_func_tbl->i2c_read(sensor_i2c_client, 0xd3,&gc5035_module_flag, MSM_CAMERA_I2C_BYTE_DATA);
+        if((gc5035_module_flag&0xc) == 0x4){
+		sensor_i2c_client->i2c_func_tbl->i2c_read(sensor_i2c_client, 0xd4,&gc5035_supply_id, MSM_CAMERA_I2C_BYTE_DATA);
+		sensor_i2c_client->i2c_func_tbl->i2c_read(sensor_i2c_client, 0xd5,&gc5035_module_id, MSM_CAMERA_I2C_BYTE_DATA);
+	}
+	else if((gc5035_module_flag&0x3) == 0x1){
+		 sensor_i2c_client->i2c_func_tbl->i2c_read(sensor_i2c_client, 0xda,&gc5035_supply_id, MSM_CAMERA_I2C_BYTE_DATA);
+		 sensor_i2c_client->i2c_func_tbl->i2c_read(sensor_i2c_client, 0xdb,&gc5035_module_id, MSM_CAMERA_I2C_BYTE_DATA);
+	}
 }
 	CDBG("gc5035 read   gc5035_module_flag%x", gc5035_module_flag);
-	CDBG("gc5035 read eeprom is 0x%x 0x%x", gc5035_supply_id,gc5035_module_id);
+	pr_err("gc5035 read eeprom is 0x%x 0x%x", gc5035_supply_id,gc5035_module_id);
 	if(0==strcmp(sensor_name, "gc5035_hs50_jk")){
-		if((gc5035_supply_id !=0x08)&&(gc5035_module_id !=0x3b)){
+		if((gc5035_supply_id !=0x08)||(gc5035_module_id !=0x3b)){
 			return -ENODEV;
 		}
 	}
 	if(0==strcmp(sensor_name, "gc5035_hs50_sjc")){
 		if((gc5035_supply_id !=0x10)&&(gc5035_module_id !=0x3b)){
-/*HS50 code for HS50-SR-QL3095-01-136 rm otp copatible sjc for default by xuxianwei at 2020/08/27 start*/
+			return -ENODEV;
+		}
+	}
+	if(0==strcmp(sensor_name, "gc5035_com_hs50_jk")){
+		if((gc5035_supply_id !=0x08)||(gc5035_module_id !=0x3a)){
+/*HS50 code for HS50-SR-QL3095-01-136 rm otp copatible gc5035com for default by wangqi at 2020/10/13 start*/
 			//return -ENODEV;
-/*HS50 code for HS50-SR-QL3095-01-136 rm otp copatible sjc for default by xuxianwei at 2020/08/27 start*/
-
+/*HS50 code for HS50-SR-QL3095-01-136 rm otp copatible gc5035com for default by wangqi at 2020/10/13 start*/
 		}
 	}
 	}
+/*HS50 code for HS50-SR-QL3095-01-97 gc5035com jk otp copatible by wangqi at 2020/10/13 end*/
 /*HS50 code for HS50 xxx by chenjun6 at 2020/08/20 start*/
 if(0 == strcmp(sensor_name, "gc02m1_hs50_cxt")||0 == strcmp(sensor_name, "gc02m1_hs50_jk")||0 == strcmp(sensor_name, "gc02m1_hs50_sjc"))
 {
@@ -961,7 +977,7 @@ if(0 == strcmp(sensor_name, "gc02m1_hs50_cxt")||0 == strcmp(sensor_name, "gc02m1
  {
               return -ENODEV;
         }
- CDBG("gc02m1 is %s, supply_id is %d, sensor_slave_addr=%x", sensor_name, gc02m1_supply_id, slave_info->sensor_slave_addr);        
+ CDBG("gc02m1 is %s, supply_id is %d, sensor_slave_addr=%x", sensor_name, gc02m1_supply_id, slave_info->sensor_slave_addr);
 }
 /*HS50 code for HS50 xxx by chenjun6 at 2020/08/20 end*/
     if(0 == strcmp(sensor_name, "gc2375h_hs50_sjc")||0 == strcmp(sensor_name, "gc2375h_hs50_cxt")){

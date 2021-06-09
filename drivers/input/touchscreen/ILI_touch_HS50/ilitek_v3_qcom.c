@@ -100,35 +100,35 @@ void ili_input_register(void)
 
 	/* Gesture keys register */
 	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_POWER);
-	input_set_capability(ilits->input, EV_KEY, KEY_POWER);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_UP);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_DOWN);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_LEFT);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_RIGHT);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_O);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_E);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_M);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_W);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_S);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_V);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_Z);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_C);
-	input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_F);
+	// input_set_capability(ilits->input, EV_KEY, KEY_POWER);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_UP);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_DOWN);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_LEFT);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_RIGHT);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_O);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_E);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_M);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_W);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_S);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_V);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_Z);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_C);
+	// input_set_capability(ilits->input, EV_KEY, KEY_GESTURE_F);
 
 	__set_bit(KEY_GESTURE_POWER, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_UP, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_DOWN, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_LEFT, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_RIGHT, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_O, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_E, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_M, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_W, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_S, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_V, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_Z, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_C, ilits->input->keybit);
-	__set_bit(KEY_GESTURE_F, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_UP, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_DOWN, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_LEFT, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_RIGHT, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_O, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_E, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_M, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_W, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_S, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_V, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_Z, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_C, ilits->input->keybit);
+	// __set_bit(KEY_GESTURE_F, ilits->input->keybit);
 
 #if ILI_USE_ENABLE_NODE
 	ilits->input->open = ili_input_open;
@@ -578,8 +578,8 @@ static int ilitek_charger_notifier_callback(struct notifier_block *nb,
 	union power_supply_propval prop;
 
 
-	if(ilits->fw_update_stat != 100)
-		return 0;
+	//if(ilits->fw_update_stat != 100)
+	//	return 0;
 
 	psy= power_supply_get_by_name("usb");
 	if (!psy) {

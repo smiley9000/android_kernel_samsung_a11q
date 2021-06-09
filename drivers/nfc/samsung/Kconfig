@@ -3,7 +3,9 @@
 #
 
 menu "Near Field Communication (NFC) devices"
-	depends on NFC
+# Huaqin modify for LSI NFC by zhangshuli at 2020/09/10 start
+	#depends on NFC
+# Huaqin modify for LSI NFC by zhangshuli at 2020/09/10 end
 
 config SEC_NFC
 	bool "Samsung NFC driver"

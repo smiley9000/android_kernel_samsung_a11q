@@ -57,7 +57,7 @@ void sec_debug_save_last_pet(unsigned long long last_pet)
 		secdbg_log->last_pet = last_pet;
 }
 
-void sec_debug_save_last_ns(unsigned long long last_ns)
+void notrace sec_debug_save_last_ns(unsigned long long last_ns)
 {
 	if (likely(secdbg_log))
 		atomic64_set(&(secdbg_log->last_ns), last_ns);
@@ -183,7 +183,7 @@ int sec_debug_sched_msg(char *fmt, ...)
 {
 	int cpu = raw_smp_processor_id();
 	struct sched_buf *sched_buf;
-	int r;
+	int r = 0;
 	int i;
 	va_list args;
 
@@ -194,7 +194,11 @@ int sec_debug_sched_msg(char *fmt, ...)
 	sched_buf = &secdbg_log->sched[cpu].buf[i];
 
 	va_start(args, fmt);
-	r = vsnprintf(sched_buf->comm, sizeof(sched_buf->comm), fmt, args);
+	if (fmt) {
+		r = vsnprintf(sched_buf->comm, sizeof(sched_buf->comm), fmt, args);
+	} else {
+		sched_buf->addr = va_arg(args, u64);
+	}
 	va_end(args);
 
 	sched_buf->time = cpu_clock(cpu);
@@ -385,8 +389,8 @@ static int __init sec_debug_sched_log_init(void)
 			vaddr = ioremap_cache(secdbg_paddr, secdbg_size);
 	}
 
-	pr_info("vaddr=0x%p paddr=0x%llx size=0x%zx sizeof(struct sec_debug_log)=0x%zx\n",
-			vaddr, (uint64_t)secdbg_paddr,
+	pr_info("vaddr=0x%p paddr=%pa size=0x%zx sizeof(struct sec_debug_log)=0x%zx\n",
+			vaddr, &secdbg_paddr,
 			secdbg_size, sizeof(struct sec_debug_log));
 
 	if ((!vaddr) || (sizeof(struct sec_debug_log) > size)) {

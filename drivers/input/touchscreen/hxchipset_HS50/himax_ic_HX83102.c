@@ -1237,7 +1237,7 @@ static int hx83102d_0f_overlay(int ovl_type, int mode)
 	uint8_t send_data[4] = {0};
 	uint8_t recv_data[4] = {0};
 
-	ret = request_firmware(&fwp, BOOT_UPGRADE_FWNAME,
+	ret = request_firmware(&fwp, (*kp_private_ts)->himax_nomalfw_rq_name,
 		(*kp_private_ts)->dev);
 	if (ret < 0) {
 		E("%s: request firmware FAIL!!!\n", __func__);
@@ -1330,6 +1330,10 @@ static int hx83102d_0f_overlay(int ovl_type, int mode)
 	do {
 		kp_g_core_fp->fp_register_read(handshaking_addr, DATA_LEN_4,
 				recv_data, 0);
+			/*HS50 code for HS50-3032 by fengzhigang at 2020/10/04 start*/
+			I("%s,  handshaking_add_data=:%d,handshaking_add_data=:%d,handshaking_add_data=:%d,handshaking_add_data=:%d\n",
+			      __func__,recv_data[3],recv_data[2],recv_data[1],recv_data[0]);
+			/*HS50 code for HS50-3032 by fengzhigang at 2020/10/04 end*/
 	} while (recv_data[0] != request && count++ < 10);
 
 	if (count < 10) {
@@ -1360,6 +1364,8 @@ static int hx83102d_0f_overlay(int ovl_type, int mode)
 #else
 			kp_g_core_fp->fp_system_reset();
 #endif
+		} else if (ovl_type == 2) {
+			kp_g_core_fp->fp_system_reset();
 		}
 	}
 
@@ -1370,7 +1376,13 @@ static int hx83102d_0f_overlay(int ovl_type, int mode)
 
 	/* rescue mechanism */
 	if (count >= 10) {
-		kp_g_core_fp->fp_0f_op_file_dirly(BOOT_UPGRADE_FWNAME);
+		/*HS50 code for HS50-3032 by fengzhigang at 2020/10/04 start*/
+		kp_g_core_fp->fp_register_read(handshaking_addr, DATA_LEN_4,
+				recv_data, 0);
+		I("%s,  handshaking_add_data=:%d,handshaking_add_data=:%d,handshaking_add_data=:%d,handshaking_add_data=:%d\n",
+			      __func__,recv_data[3],recv_data[2],recv_data[1],recv_data[0]);
+		/*HS50 code for HS50-3032 by fengzhigang at 2020/10/04 end*/
+		kp_g_core_fp->fp_0f_op_file_dirly((*kp_private_ts)->himax_nomalfw_rq_name);
 		kp_g_core_fp->fp_reload_disable(0);
 		kp_g_core_fp->fp_sense_on(0x00);
 		kp_himax_int_enable(1);

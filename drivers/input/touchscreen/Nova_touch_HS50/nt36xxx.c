@@ -62,6 +62,7 @@ extern void nvt_mp_proc_deinit(void);
 extern int nvt_test_node_init(struct platform_device *tpinfo_device);
 #endif
 
+extern int nvt_ts_mode_restore(struct nvt_ts_data *ts);
 int nvt_ts_sec_fn_init(struct nvt_ts_data *ts);
 void nvt_ts_sec_fn_remove(struct nvt_ts_data *ts);
 
@@ -285,7 +286,7 @@ static ssize_t nvt_proc_getinfo_read(struct file *filp, char __user *buff, size_
 {
 	char buf[150] = {0};
 	int rc = 0;
-	snprintf(buf, 150, "IC=NT36525B module=truly fw_ver=%x\n",ts->fw_ver);
+	snprintf(buf, 150, "TP_module=%s fw_ver=%x\n", ts->md_name,ts->fw_ver);
 	rc = simple_read_from_buffer(buff, size, pPos, buf, strlen(buf));
 	return rc;
 }
@@ -1422,7 +1423,7 @@ static void nvt_esd_check_func(struct work_struct *work)
 		mutex_lock(&ts->lock);
 		NVT_ERR("do ESD recovery, timer = %d, retry = %d\n", timer, esd_retry);
 		/* do esd recovery, reload fw */
-		nvt_update_firmware(BOOT_UPDATE_FIRMWARE_NAME);
+		nvt_update_firmware(ts->md_nomalfw_rq_name);
 		mutex_unlock(&ts->lock);
 		/* update interrupt timer */
 		irq_timer = jiffies;
@@ -1688,7 +1689,7 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
    /* ESD protect by WDT */
    if (nvt_wdt_fw_recovery(point_data)) {
        NVT_ERR("Recover for fw reset, %02X\n", point_data[1]);
-       nvt_update_firmware(BOOT_UPDATE_FIRMWARE_NAME);
+       nvt_update_firmware(ts->md_nomalfw_rq_name);
        goto XFER_ERROR;
    }
 #endif /* #if NVT_TOUCH_WDT_RECOVERY */
@@ -1936,9 +1937,12 @@ static int nvt_get_tp_module(void)
 		of_property_read_string(chosen, "bootargs", &panel_name);
 		NVT_LOG("cmdline:%s\n", panel_name);
 	}
+
 	if (NULL != strstr(panel_name, "qcom,mdss_dsi_truly_truly_nt3652bh_720p_video")){
-		fw_num = MODEL_TRULY_TRULY;
-	} else fw_num = MODEL_DEFAULT;
+		fw_num = MODEL_TRULY_TRULY_PID7211;
+	}else if (NULL != strstr(panel_name,"qcom,mdss_dsi_truly_truly_rs460_nt3652bh_swid41_720p_video")){
+		fw_num = MODEL_TRULY_TRULY_PID721A;
+	}else  fw_num = MODEL_DEFAULT;
 	/*
 	 * TODO: users should implement this function
 	 * if there are various tp modules been used in projects.
@@ -1954,13 +1958,160 @@ static void nvt_update_module_info(void)
 	module = nvt_get_tp_module();
 	switch (module)
 	{
-	case MODEL_TRULY_TRULY:
-		strcpy(ts->md_name,"TRULY_TRULY_NT3652BH");
+	case MODEL_TRULY_TRULY_PID7211:
+		strcpy(ts->md_name,"TRULY_TRULY_RS395_NT3652BH");
+		strcpy(ts->md_nomalfw_rq_name, "nvt_nomalfw_pid7211.bin");
+		strcpy(ts->md_mpfw_rq_name, "nvt_mpfw_pid7211.bin");
 		break;
-
+	/*HS50 code for SR-QL3095-01-755 by weiqiang at 2020/10/02 start*/
+	case MODEL_TRULY_TRULY_PID721A:
+		strcpy(ts->md_name,"TRULY_TRULY_RS460_NT3652BH");
+		strcpy(ts->md_nomalfw_rq_name, "nvt_nomalfw_pid721a.bin");
+		strcpy(ts->md_mpfw_rq_name, "nvt_mpfw_pid721a.bin");
+		break;
+	/*HS50 code for SR-QL3095-01-755 by weiqiang at 2020/10/02 end*/
 	default:
 		strcpy(ts->md_name,"UNKNOWN");
 		break;
+	}
+}
+
+int32_t nvt_set_charger(uint8_t charger_on_off)
+{
+	uint8_t buf[8] = {0};
+	int32_t ret = 0;
+
+	NVT_LOG("set charger: %d\n", charger_on_off);
+
+	msleep(20);
+	mutex_lock(&ts->lock);
+	//---set xdata index to EVENT BUF ADDR---
+	ret = nvt_set_page(ts->mmap->EVENT_BUF_ADDR | EVENT_MAP_HOST_CMD);
+	if (ret < 0) {
+		NVT_ERR("Set event buffer index fail!\n");
+		goto nvt_set_charger_out;
+	}
+
+	if (charger_on_off == USB_DETECT_IN) {
+		buf[0] = EVENT_MAP_HOST_CMD;
+		buf[1] = CMD_CHARGER_ON;
+		ret = CTP_SPI_WRITE(ts->client, buf, 2);
+		if (ret < 0) {
+			NVT_ERR("Write set charger command fail!\n");
+			goto nvt_set_charger_out;
+		} else {
+			NVT_LOG("set charger on cmd succeeded\n");
+		}
+	} else if (charger_on_off == USB_DETECT_OUT) {
+		buf[0] = EVENT_MAP_HOST_CMD;
+		buf[1] = CMD_CHARGER_OFF;
+		ret = CTP_SPI_WRITE(ts->client, buf, 2);
+		if (ret < 0) {
+			NVT_ERR("Write set charger command fail!\n");
+			goto nvt_set_charger_out;
+		} else {
+			NVT_LOG("set charger off cmd succeeded\n");
+		}
+	} else {
+		NVT_ERR("Invalid charger parameter!\n");
+		ret = -EINVAL;
+	}
+
+    nvt_set_charger_out:
+
+	mutex_unlock(&ts->lock);
+
+	return ret;
+}
+
+static void nvt_charger_notify_work(struct work_struct *work)
+{
+	if (NULL == work) {
+		NVT_ERR("%s:  parameter work are null!\n", __func__);
+		return;
+	}
+
+	NVT_LOG("enter nvt_charger_notify_work\n");
+
+	if (USB_DETECT_IN == ts->usb_plug_status) {
+		NVT_ERR("USB plug in");
+		nvt_set_charger(USB_DETECT_IN);
+	} else if (USB_DETECT_OUT == ts->usb_plug_status) {
+		NVT_ERR("USB plug out");
+		nvt_set_charger(USB_DETECT_OUT);
+	}else{
+		NVT_LOG("Charger flag:%d not currently required!\n",ts->usb_plug_status);
+	}
+}
+
+static int nvt_charger_notifier_callback(struct notifier_block *nb,
+								unsigned long val, void *v)
+{
+	int ret = 0;
+	struct power_supply *psy = NULL;
+	union power_supply_propval prop;
+	struct nvt_ts_data *ts = container_of(nb, struct nvt_ts_data, charger_notif);
+
+	if(ts->fw_update_stat != FW_UPDATE_PASS)
+		return 0;
+
+	psy= power_supply_get_by_name("usb");
+	if (!psy) {
+		NVT_ERR("Couldn't get usbpsy\n");
+		return -EINVAL;
+	}
+	if (!strcmp(psy->desc->name, "usb")) {
+		if (psy && ts && val == POWER_SUPPLY_PROP_STATUS) {
+			ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_PRESENT, &prop);
+			if (ret < 0) {
+				NVT_ERR("Couldn't get POWER_SUPPLY_PROP_ONLINE rc=%d\n", ret);
+				return ret;
+			} else {
+				if(prop.intval != ts->usb_plug_status) {
+					NVT_LOG("usb_plug_status = %d\n", prop.intval);
+					ts->usb_plug_status = prop.intval;
+					if((POWER_ON_STATUS == ts->power_status) && (ts->nvt_charger_notify_wq != NULL))
+						queue_work(ts->nvt_charger_notify_wq, &ts->charger_notify_work);
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+void nvt_charger_init(void)
+{
+	int ret = 0;
+	struct power_supply *psy = NULL;
+	union power_supply_propval prop;
+
+	ts->nvt_charger_notify_wq = create_singlethread_workqueue("nvt_charger_wq");
+	if (!ts->nvt_charger_notify_wq) {
+		NVT_ERR("allocate nvt_charger_notify_wq failed\n");
+		return;
+	}
+
+	INIT_WORK(&ts->charger_notify_work, nvt_charger_notify_work);
+	ts->charger_notif.notifier_call = nvt_charger_notifier_callback;
+	ret = power_supply_reg_notifier(&ts->charger_notif);
+	if (ret) {
+		NVT_ERR("Unable to register charger_notifier: %d\n",ret);
+	}
+
+	/* if power supply supplier registered brfore TP
+	* ps_notify_callback will not receive PSY_EVENT_PROP_ADDED
+	* event, and will cause miss to set TP into charger state.
+	* So check PS state in probe.
+	*/
+	psy = power_supply_get_by_name("usb");
+	if (psy) {
+		ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_PRESENT, &prop);
+		if (ret < 0) {
+			NVT_ERR("Couldn't get POWER_SUPPLY_PROP_ONLINE rc=%d\n", ret);
+		} else {
+			ts->usb_plug_status = prop.intval;
+			NVT_LOG("boot check usb_plug_status = %d\n", prop.intval);
+		}
 	}
 }
 
@@ -2192,6 +2343,8 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 	device_init_wakeup(&ts->input_dev->dev, 1);
 #endif
 
+	nvt_charger_init();
+
 	nvt_update_module_info();
 
 #ifdef CONFIG_HW_INFO
@@ -2257,12 +2410,6 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		goto err_init_sec_fn;
 	}
 
-#if NVT_USE_ENABLE_NODE
-	ret = sysfs_create_link(&ts->sec.fac_dev->kobj, &ts->input_dev->dev.kobj, "input");
-	if (ret < 0) {
-        NVT_ERR("%s: Failed to sysfs_create_link\n", __func__);
-    }
-#endif
 
 #if defined(CONFIG_FB)
 #ifdef _MSM_DRM_NOTIFY_H_
@@ -2625,6 +2772,8 @@ return:
 *******************************************************/
 static int32_t nvt_ts_resume(struct device *dev)
 {
+	int ret = 0;
+
 	if (ts->power_status == POWER_ON_STATUS) {
 		NVT_LOG("Touch is already resume\n");
 		return 0;
@@ -2642,7 +2791,7 @@ static int32_t nvt_ts_resume(struct device *dev)
 #if NVT_TOUCH_SUPPORT_HW_RST
 	gpio_set_value(ts->reset_gpio, 1);
 #endif
-	if (nvt_update_firmware(BOOT_UPDATE_FIRMWARE_NAME)) {
+	if (nvt_update_firmware(ts->md_nomalfw_rq_name)) {
 		NVT_ERR("download firmware failed, ignore check fw state\n");
 	} else {
 		nvt_check_fw_reset_state(RESET_STATE_REK);
@@ -2659,6 +2808,12 @@ static int32_t nvt_ts_resume(struct device *dev)
 #endif /* #if NVT_TOUCH_ESD_PROTECT */
 
 	ts->power_status = POWER_ON_STATUS;
+
+	ret = nvt_ts_mode_restore(ts);
+	if (ret) {
+		mutex_unlock(&ts->lock);
+		return ret;
+	}
 
 	mutex_unlock(&ts->lock);
 

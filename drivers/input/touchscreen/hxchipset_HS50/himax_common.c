@@ -24,7 +24,7 @@ int (*hx_msm_drm_unregister_client)(struct notifier_block *nb);
 #endif
 
 #if defined(HX_SMART_WAKEUP)
-#define GEST_SUP_NUM 26
+#define GEST_SUP_NUM 1
 /* Setting cust key define (DF = double finger) */
 /* {Double Tap, Up, Down, Left, Right, C, Z, M,
  *	O, S, V, W, e, m, @, (reserve),
@@ -32,20 +32,11 @@ int (*hx_msm_drm_unregister_client)(struct notifier_block *nb);
  *	Left(DF), Right(DF)}
  */
 uint8_t gest_event[GEST_SUP_NUM] = {
-	0x80, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-	0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
-	0x81, 0x1D, 0x2D, 0x3D, 0x1F, 0x2F, 0x51, 0x52,
-	0x53, 0x54};
+	0x80};
 
 /*gest_event mapping to gest_key_def*/
 uint16_t gest_key_def[GEST_SUP_NUM] = {
-	HX_KEY_DOUBLE_CLICK, HX_KEY_UP, HX_KEY_DOWN, HX_KEY_LEFT,
-	HX_KEY_RIGHT,	HX_KEY_C, HX_KEY_Z, HX_KEY_M,
-	HX_KEY_O, HX_KEY_S, HX_KEY_V, HX_KEY_W,
-	HX_KEY_E, HX_KEY_LC_M, HX_KEY_AT, HX_KEY_RESERVE,
-	HX_KEY_FINGER_GEST,	HX_KEY_V_DOWN, HX_KEY_V_LEFT, HX_KEY_V_RIGHT,
-	HX_KEY_F_RIGHT,	HX_KEY_F_LEFT, HX_KEY_DF_UP, HX_KEY_DF_DOWN,
-	HX_KEY_DF_LEFT,	HX_KEY_DF_RIGHT};
+	HX_KEY_DOUBLE_CLICK};
 
 uint8_t *wake_event_buffer;
 #endif
@@ -872,10 +863,10 @@ int himax_input_register(struct himax_ts_data *ts)
 	set_bit(EV_SYN, ts->input_dev->evbit);
 	set_bit(EV_ABS, ts->input_dev->evbit);
 	set_bit(EV_KEY, ts->input_dev->evbit);
-	set_bit(KEY_BACK, ts->input_dev->keybit);
-	set_bit(KEY_HOME, ts->input_dev->keybit);
-	set_bit(KEY_MENU, ts->input_dev->keybit);
-	set_bit(KEY_SEARCH, ts->input_dev->keybit);
+	// set_bit(KEY_BACK, ts->input_dev->keybit);
+	// set_bit(KEY_HOME, ts->input_dev->keybit);
+	// set_bit(KEY_MENU, ts->input_dev->keybit);
+	// set_bit(KEY_SEARCH, ts->input_dev->keybit);
 
 #if defined(HX_SMART_WAKEUP)
 	for (i = 0; i < GEST_SUP_NUM; i++)
@@ -884,7 +875,7 @@ int himax_input_register(struct himax_ts_data *ts)
 	set_bit(KEY_POWER, ts->input_dev->keybit);
 #endif
 	set_bit(BTN_TOUCH, ts->input_dev->keybit);
-	set_bit(KEY_APPSELECT, ts->input_dev->keybit);
+	//set_bit(KEY_APPSELECT, ts->input_dev->keybit);
 	set_bit(INPUT_PROP_DIRECT, ts->input_dev->propbit);
 #if defined(HX_PROTOCOL_A)
 	/*ts->input_dev->mtsize = ts->nFinger_support;*/
@@ -1015,8 +1006,8 @@ static int i_get_FW(void)
 	int ret = -1;
 	int result = NO_ERR;
 
-	I("%s: file name = %s\n", __func__, BOOT_UPGRADE_FWNAME);
-	ret = request_firmware(&hxfw, BOOT_UPGRADE_FWNAME, private_ts->dev);
+	I("%s: file name = %s\n", __func__, private_ts->himax_nomalfw_rq_name);
+	ret = request_firmware(&hxfw, private_ts->himax_nomalfw_rq_name, private_ts->dev);
 	if (ret < 0) {
 #if defined(__EMBEDDED_FW__)
 		hxfw = &g_embedded_fw;
@@ -2839,7 +2830,7 @@ static void himax_fb_register(struct work_struct *work)
 }
 #endif
 
-#if defined(HX_CONTAINER_SPEED_UP)
+#if defined(HX_CONTAINER_SPEED_UP) || defined(HX_RESUME_BY_THREAD)
 static void himax_resume_work_func(struct work_struct *work)
 {
 	himax_chip_common_resume(private_ts);
@@ -3017,7 +3008,7 @@ found_hx_chip:
 			msecs_to_jiffies(2000));
 #endif
 
-#if defined(HX_CONTAINER_SPEED_UP)
+#if defined(HX_CONTAINER_SPEED_UP) || defined(HX_RESUME_BY_THREAD)
 	ts->ts_int_workqueue =
 			create_singlethread_workqueue("himax_ts_resume_wq");
 	if (!ts->ts_int_workqueue) {
@@ -3025,6 +3016,7 @@ found_hx_chip:
 		goto err_create_ts_resume_wq_failed;
 	}
 	INIT_DELAYED_WORK(&ts->ts_int_work, himax_resume_work_func);
+	mutex_init(&ts->fw_update_lock);
 #endif
 
 	/*Himax Power On and Load Config*/
@@ -3123,7 +3115,7 @@ err_input_register_device_failed:
 	input_free_device(ts->input_dev);
 /*err_detect_failed:*/
 
-#if defined(HX_CONTAINER_SPEED_UP)
+#if defined(HX_CONTAINER_SPEED_UP) || defined(HX_RESUME_BY_THREAD)
 	cancel_delayed_work_sync(&ts->ts_int_work);
 	destroy_workqueue(ts->ts_int_workqueue);
 err_create_ts_resume_wq_failed:
@@ -3203,7 +3195,7 @@ void himax_chip_common_deinit(void)
 	destroy_workqueue(ts->himax_att_wq);
 #endif
 	input_free_device(ts->input_dev);
-#if defined(HX_CONTAINER_SPEED_UP)
+#if defined(HX_CONTAINER_SPEED_UP) || defined(HX_RESUME_BY_THREAD)
 	cancel_delayed_work_sync(&ts->ts_int_work);
 	destroy_workqueue(ts->ts_int_workqueue);
 #endif
@@ -3260,8 +3252,11 @@ int himax_chip_common_suspend(struct himax_ts_data *ts)
 
 	if (ts->SMWP_enable) {
 #if defined(HX_CODE_OVERLAY)
-		if (ts->in_self_test == 0)
+		if (ts->in_self_test == 0) {
+			mutex_lock(&private_ts->fw_update_lock);
 			g_core_fp.fp_0f_overlay(2, 0);
+			mutex_unlock(&private_ts->fw_update_lock);
+		}
 #endif
 		if (g_core_fp._ap_notify_fw_sus != NULL)
 			g_core_fp._ap_notify_fw_sus(1);
@@ -3329,6 +3324,8 @@ int himax_chip_common_resume(struct himax_ts_data *ts)
 	if (ts->pdata)
 		if (ts->pdata->powerOff3V3 && ts->pdata->power)
 			ts->pdata->power(1);
+
+mutex_lock(&private_ts->fw_update_lock);
 #if defined(HX_RST_PIN_FUNC) && defined(HX_RESUME_HW_RESET)
 	if (g_core_fp.fp_ic_reset != NULL)
 		g_core_fp.fp_ic_reset(false, false);
@@ -3362,9 +3359,10 @@ int himax_chip_common_resume(struct himax_ts_data *ts)
 	|| defined(HX_USB_DETECT_GLOBAL)
 	if (g_core_fp.fp_resend_cmd_func != NULL)
 		g_core_fp.fp_resend_cmd_func(ts->suspended);
-
+/*HS50 code for HS50-3032 by fengzhigang at 2020/10/04 start*/
 #if defined(HX_CODE_OVERLAY)\
-	&& defined(HX_SMART_WAKEUP)
+	&& defined(HX_SMART_WAKEUP) && !defined(HX_SWU_RESUME_SET_FW)
+/*HS50 code for HS50-3032 by fengzhigang at 2020/10/04 end*/
 	if (ts->SMWP_enable && ts->in_self_test == 0)
 		g_core_fp.fp_0f_overlay(3, 0);
 #endif
@@ -3381,6 +3379,7 @@ int himax_chip_common_resume(struct himax_ts_data *ts)
 ESCAPE_0F_UPDATE:
 #endif
 END:
+	mutex_unlock(&private_ts->fw_update_lock);
 	if (ts->in_self_test == 1)
 		ts->suspend_resume_done = 1;
 

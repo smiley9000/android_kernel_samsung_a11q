@@ -2643,8 +2643,14 @@ static void himax_mcu_touch_information(void)
 	if (err_cnt > 0)
 		E("TP Info from IC is wrong, err_cnt = 0x%X", err_cnt);
 #else
-	ic_data->HX_RX_NUM = FIX_HX_RX_NUM;
-	ic_data->HX_TX_NUM = FIX_HX_TX_NUM;
+	if(strcmp(HX_83102D_SERIES_PWON, private_ts->chip_name) == 0 ){
+		ic_data->HX_RX_NUM = FIX_HX_RX_NUM;
+		ic_data->HX_TX_NUM = FIX_HX_TX_NUM;
+	}else {
+		ic_data->HX_RX_NUM = FIX_HX_RX_NUM_112A;
+		ic_data->HX_TX_NUM = FIX_HX_TX_NUM_112A;
+	}
+
 	ic_data->HX_BT_NUM = FIX_HX_BT_NUM;
 	ic_data->HX_MAX_PT = FIX_HX_MAX_PT;
 	ic_data->HX_XY_REVERSE = FIX_HX_XY_REVERSE;
@@ -3485,6 +3491,8 @@ int himax_zf_part_info(const struct firmware *fw_entry)
 			g_core_fp.fp_resend_cmd_func(private_ts->suspended);
 #endif
 		}
+
+	if (allovlidx != 0) {
 		I("%s: prepare upgrade overlay section = %d\n",
 				__func__, ovl_idx_t);
 
@@ -3516,6 +3524,7 @@ int himax_zf_part_info(const struct firmware *fw_entry)
 				|| send_data[1] != recv_data[1]
 				|| send_data[0] != recv_data[0])
 				&& retry < HIMAX_REG_RETRY_TIMES);
+	}
 #endif
 
 	} else {
@@ -3677,9 +3686,9 @@ int himax_mcu_0f_operation_dirly(void)
 	int err = NO_ERR, ret;
 	const struct firmware *fw_entry = NULL;
 
-	I("%s, Entering,file name = %s\n", __func__, BOOT_UPGRADE_FWNAME);
+	I("%s, Entering,file name = %s\n", __func__, private_ts->himax_nomalfw_rq_name);
 
-	ret = request_firmware(&fw_entry, BOOT_UPGRADE_FWNAME,
+	ret = request_firmware(&fw_entry, private_ts->himax_nomalfw_rq_name,
 		private_ts->dev);
 	if (ret < 0) {
 #if defined(__EMBEDDED_FW__)
@@ -3719,9 +3728,9 @@ void himax_mcu_0f_operation(struct work_struct *work)
 	int err = NO_ERR;
 	const struct firmware *fw_entry = NULL;
 
-	I("%s, Entering,file name = %s\n", __func__, BOOT_UPGRADE_FWNAME);
+	I("%s, Entering,file name = %s\n", __func__, private_ts->himax_nomalfw_rq_name);
 
-	err = request_firmware(&fw_entry, BOOT_UPGRADE_FWNAME,
+	err = request_firmware(&fw_entry, private_ts->himax_nomalfw_rq_name,
 		private_ts->dev);
 	if (err < 0) {
 #if defined(__EMBEDDED_FW__)
@@ -4053,9 +4062,9 @@ void himax_mcu_0f_operation_check(int type)
 	const struct firmware *fw_entry = NULL;
 	/* char *firmware_name = "himax.bin"; */
 
-	I("%s, Entering,file name = %s\n", __func__, BOOT_UPGRADE_FWNAME);
+	I("%s, Entering,file name = %s\n", __func__, private_ts->himax_nomalfw_rq_name);
 
-	err = request_firmware(&fw_entry, BOOT_UPGRADE_FWNAME,
+	err = request_firmware(&fw_entry, private_ts->himax_nomalfw_rq_name,
 		private_ts->dev);
 	if (err < 0) {
 #if defined(__EMBEDDED_FW__)

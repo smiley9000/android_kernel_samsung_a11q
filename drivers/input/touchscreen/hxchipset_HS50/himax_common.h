@@ -47,6 +47,10 @@
 	#include <linux/of_gpio.h>
 #endif
 
+#ifdef CONFIG_HW_INFO
+#include <linux/hw_info.h>
+#endif
+
 #define HIMAX_DRIVER_VER "2.0.0.70_HQ_O3_01"
 
 #define FLASH_DUMP_FILE "/sdcard/HX_Flash_Dump.bin"
@@ -118,6 +122,7 @@
 #define HX_CODE_OVERLAY
 /*Independent threads run the notification chain notification function resume*/
 /*#define HX_CONTAINER_SPEED_UP*/
+#define HX_RESUME_BY_THREAD
 #else
 #define HX_TP_PROC_GUEST_INFO
 #endif
@@ -146,6 +151,10 @@
 /*Resume queue delay work time after LCM RST (unit:ms)
  */
 #define DELAY_TIME 40
+#else
+#if defined(HX_RESUME_BY_THREAD)
+#define DELAY_TIME 1
+#endif
 #endif
 
 #if defined(HX_RST_PIN_FUNC)
@@ -194,6 +203,7 @@ int drm_notifier_callback(struct notifier_block *self,
 #define HX_83102D_SERIES_PWON		"HX83102D"
 #define HX_83102E_SERIES_PWON		"HX83102E"
 #define HX_83103A_SERIES_PWON		"HX83103A"
+#define HX_83104A_SERIES_PWON		"HX83104A"
 #define HX_83106A_SERIES_PWON		"HX83106A"
 #define HX_83110A_SERIES_PWON		"HX83110A"
 #define HX_83110B_SERIES_PWON		"HX83110B"
@@ -259,7 +269,16 @@ enum HX_TS_PATH {
 	HX_REPORT_SMWP_EVENT,
 	HX_REPORT_COORD_RAWDATA,
 };
-
+/*HS50 code for SR-QL3095-01-735 by fengzhigang at 2020/10/10 start*/
+enum HX_TS_MODEL {
+	MODEL_DEFAULT = 0,
+	MODEL_HX_BOE_7MASK,
+	MODEL_HX_BOE_6MASK,
+	MODEL_TXD_INX,
+	MODEL_LS_BOE,
+	MODEL_JZ_INX,
+};
+/*HS50 code for SR-QL3095-01-735 by fengzhigang at 2020/10/10 end*/
 enum HX_TS_STATUS {
 	HX_TS_GET_DATA_FAIL = -4,
 	HX_EXCP_EVENT,
@@ -315,6 +334,8 @@ enum cell_type {
 enum fix_touch_info {
 	FIX_HX_RX_NUM = 32,
 	FIX_HX_TX_NUM = 18,
+	FIX_HX_RX_NUM_112A = 36,
+	FIX_HX_TX_NUM_112A = 18,
 	FIX_HX_BT_NUM = 0,
 	FIX_HX_MAX_PT = 10,
 	FIX_HX_XY_REVERSE = false,
@@ -419,6 +440,7 @@ struct himax_report_data {
 struct himax_ts_data {
 	bool initialized;
 	bool suspended;
+	bool dev_pm_suspend;
 	int notouch_frame;
 	int ic_notouch_frame;
 	atomic_t suspend_mode;
@@ -427,6 +449,12 @@ struct himax_ts_data {
 	uint8_t useScreenRes;
 	uint8_t diag_cmd;
 	char chip_name[30];
+	/*HS50 code for SR-QL3095-01-735 by fengzhigang at 2020/10/10 start*/
+	char himax_name[32];
+	char himax_nomalfw_rq_name[32];
+	char himax_mpfw_rq_name[32];
+	char himax_csv_name[32];
+	/*HS50 code for SR-QL3095-01-735 by fengzhigang at 2020/10/10 end*/
 	uint8_t chip_cell_type;
 
 	uint8_t protocol_type;
@@ -476,6 +504,7 @@ struct himax_ts_data {
 	struct himax_i2c_platform_data *pdata;
 	struct himax_virtual_key *button;
 	struct mutex rw_lock;
+	struct completion dev_pm_suspend_completion;
 	atomic_t irq_state;
 	spinlock_t irq_lock;
 
@@ -503,10 +532,12 @@ struct himax_ts_data {
 	struct delayed_work work_boot_upgrade;
 #endif
 
-#if defined(HX_CONTAINER_SPEED_UP)
+#if defined(HX_CONTAINER_SPEED_UP) || defined(HX_RESUME_BY_THREAD)
 	struct workqueue_struct *ts_int_workqueue;
 	struct delayed_work ts_int_work;
 #endif
+
+	struct mutex fw_update_lock;
 
 	struct workqueue_struct *himax_diag_wq;
 	struct delayed_work himax_diag_delay_wrok;

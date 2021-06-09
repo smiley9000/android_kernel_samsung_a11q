@@ -4192,6 +4192,18 @@ static void smb5_shutdown(struct platform_device *pdev)
 	/* force enable APSD */
 	smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG,
 				BC1P2_SRC_DETECT_BIT, BC1P2_SRC_DETECT_BIT);
+/* HS50 add for P201023-04559 re-connect vbus when shutdown with afc TA by wenyaqi at 2020/10/28 start */
+#if defined(CONFIG_AFC)
+	if (chg->real_charger_type == POWER_SUPPLY_TYPE_AFC)
+	{
+		if (chg->vbus_control_gpio_enable)
+		{
+			ss_vbus_control_gpio_set(chg, DRAW_VBUS_GPIO59_HIGH);
+			ss_vbus_control_gpio_set(chg, DRAW_VBUS_GPIO59_LOW);
+		}
+	}
+#endif
+/* HS50 add for P201023-04559 re-connect vbus when shutdown with afc TA by wenyaqi at 2020/10/28 end */
 }
 
 static const struct of_device_id match_table[] = {
